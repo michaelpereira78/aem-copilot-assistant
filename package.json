@@ -1,0 +1,69 @@
+{
+  "name": "aem-copilot-assistant",
+  "displayName": "AEM Copilot Assistant",
+  "description": "GitHub Copilot slash commands for AEM 6.5 site development — scaffolds sites, templates, themes, components, and pages with step-by-step guidance.",
+  "version": "1.0.0",
+  "publisher": "your-publisher-id",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": ["AI", "Other"],
+  "keywords": ["aem", "adobe experience manager", "copilot", "scaffold", "cms"],
+  "activationEvents": [],
+  "main": "./src/extension.js",
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "aem-copilot-assistant.aem",
+        "fullName": "AEM Assistant",
+        "name": "aem",
+        "description": "AEM 6.5 scaffold and guidance assistant",
+        "isSticky": false,
+        "commands": [
+          {
+            "name": "new-site",
+            "description": "Scaffold a new AEM 6.5 site — folder structure, .content.xml stubs, and setup steps. Usage: /new-site siteName=my-brand groupId=com.mybrand"
+          },
+          {
+            "name": "new-template",
+            "description": "Create an editable template under /conf/ with structure, policies, and initial nodes. Usage: /new-template name=content-page site=my-brand"
+          },
+          {
+            "name": "new-theme",
+            "description": "Scaffold a ClientLib folder with SCSS structure and wiring steps. Usage: /new-theme name=brand-theme site=my-brand components=nav,hero,footer"
+          },
+          {
+            "name": "new-page",
+            "description": "Generate a page .content.xml with jcr:content and parsys nodes. Usage: /new-page title=About site=my-brand template=content-page depth=standard"
+          },
+          {
+            "name": "new-component",
+            "description": "Generate a full AEM component — node, HTL, Sling model, and dialog. Usage: /new-component name=hero site=my-brand group=my-brand"
+          },
+          {
+            "name": "new-policy",
+            "description": "Generate a content policy and wire it into a template. Usage: /new-policy component=hero template=content-page site=my-brand"
+          },
+          {
+            "name": "explain",
+            "description": "Plain-English explanation of any AEM 6.5 concept with examples. Usage: /explain topic=\"editable templates\""
+          },
+          {
+            "name": "debug",
+            "description": "Diagnose AEM errors, broken XML, or misbehaving HTL. Usage: /debug [paste your error or file content]"
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^2.27.0",
+    "eslint": "^8.57.0"
+  }
+}
