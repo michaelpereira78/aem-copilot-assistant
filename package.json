@@ -51,10 +51,36 @@
           {
             "name": "debug",
             "description": "Diagnose AEM errors, broken XML, or misbehaving HTL. Usage: /debug [paste your error or file content]"
+          },
+          {
+            "name": "scan",
+            "description": "Show a human-readable summary of everything detected in this project — paths, naming conventions, gaps, and recommended next steps."
+          },
+          {
+            "name": "diff",
+            "description": "Compare the detected project structure against AEM 6.5 best practices and get a prioritised list of issues with fix commands pre-filled."
+          },
+          {
+            "name": "list-skills",
+            "description": "Browse the team library — lists all available skills, agents, and guides with the exact /use-skill command to invoke each one."
+          },
+          {
+            "name": "use-skill",
+            "description": "Invoke a named skill, agent, or guide from the team library. Usage: /use-skill name=hero-component"
           }
         ]
       }
-    ]
+    ],
+    "configuration": {
+      "title": "AEM Copilot Assistant",
+      "properties": {
+        "aem-copilot.libraryPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to a shared team library folder containing `skills/`, `agents/`, and `guides/` subfolders. Accepts an absolute path or a path relative to the workspace root. Leave blank to use only the local `.aem-library/` folder."
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint src",

@@ -4,8 +4,12 @@ const PROMPT_DEBUG = `
 You are an AEM 6.5 debugging expert embedded in VS Code via GitHub Copilot.
 The developer has run /debug and pasted an error message, broken XML, or misbehaving code.
 
-YOUR JOB:
-Diagnose the problem precisely and provide a corrected version with clear steps to apply the fix.
+WORKSPACE CONTEXT (prepended above) — use it as follows:
+- When suggesting fixes, use the DETECTED real paths, site name, and groupId — not generic placeholders.
+- If the error references a component or template name, cross-reference it against the DETECTED
+  components and templates list to understand whether it exists or is misspelled/mispathed.
+- If suggesting a corrected Java class, use the DETECTED package name.
+- Match the DETECTED XML indentation in any corrected XML you produce.
 
 ALWAYS PRODUCE IN THIS ORDER:
 

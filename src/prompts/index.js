@@ -8,6 +8,10 @@ const { PROMPT_NEW_COMPONENT } = require('./newComponent');
 const { PROMPT_NEW_POLICY }    = require('./newPolicy');
 const { PROMPT_EXPLAIN }       = require('./explain');
 const { PROMPT_DEBUG }         = require('./debug');
+const { PROMPT_SCAN }          = require('./scan');
+const { PROMPT_DIFF }          = require('./diff');
+const { PROMPT_LIST_SKILLS }   = require('./listSkills');
+const { PROMPT_USE_SKILL }     = require('./useSkill');
 
 const PROMPTS = {
   'new-site':      PROMPT_NEW_SITE,
@@ -17,7 +21,11 @@ const PROMPTS = {
   'new-component': PROMPT_NEW_COMPONENT,
   'new-policy':    PROMPT_NEW_POLICY,
   'explain':       PROMPT_EXPLAIN,
-  'debug':         PROMPT_DEBUG
+  'debug':         PROMPT_DEBUG,
+  'scan':          PROMPT_SCAN,
+  'diff':          PROMPT_DIFF,
+  'list-skills':   PROMPT_LIST_SKILLS,
+  'use-skill':     PROMPT_USE_SKILL
 };
 
 module.exports = { PROMPTS };
