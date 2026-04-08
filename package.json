@@ -12,6 +12,132 @@
   "activationEvents": [],
   "main": "./src/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aem-library-container",
+          "title": "AEM Library",
+          "icon": "icon-sidebar.svg"
+        }
+      ]
+    },
+    "views": {
+      "aem-library-container": [
+        {
+          "id": "aem-copilot.libraryView",
+          "name": "Team Library",
+          "icon": "icon-sidebar.svg",
+          "contextualTitle": "AEM Copilot — Team Library"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "aem-copilot.refreshLibrary",
+        "title": "Refresh Library",
+        "icon": "$(refresh)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.newSkill",
+        "title": "New Skill",
+        "icon": "$(add)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.newAgent",
+        "title": "New Agent",
+        "icon": "$(add)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.newGuide",
+        "title": "New Guide",
+        "icon": "$(add)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.newEntry",
+        "title": "New Skill / Agent / Guide…",
+        "icon": "$(add)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.editEntry",
+        "title": "Edit",
+        "icon": "$(edit)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.renameEntry",
+        "title": "Rename",
+        "icon": "$(whole-word)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.duplicateEntry",
+        "title": "Duplicate",
+        "icon": "$(copy)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.deleteEntry",
+        "title": "Delete",
+        "icon": "$(trash)",
+        "category": "AEM Library"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aem-copilot.newEntry",
+          "when": "view == aem-copilot.libraryView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aem-copilot.refreshLibrary",
+          "when": "view == aem-copilot.libraryView",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "aem-copilot.newSkill",
+          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryCategory",
+          "group": "1_create@1"
+        },
+        {
+          "command": "aem-copilot.newAgent",
+          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryCategory",
+          "group": "1_create@2"
+        },
+        {
+          "command": "aem-copilot.newGuide",
+          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryCategory",
+          "group": "1_create@3"
+        },
+        {
+          "command": "aem-copilot.editEntry",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "aem-copilot.deleteEntry",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "aem-copilot.renameEntry",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "aem-copilot.duplicateEntry",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
+          "group": "2_edit@2"
+        }
+      ]
+    },
     "chatParticipants": [
       {
         "id": "aem-copilot-assistant.aem",
@@ -66,7 +192,7 @@
           },
           {
             "name": "use-skill",
-            "description": "Invoke a named skill, agent, or guide from the team library. Usage: /use-skill name=hero-component"
+            "description": "Invoke a skill, agent, or guide from the team library. Run with no arguments to open a searchable picker, or pass name=x to invoke directly."
           }
         ]
       }

@@ -500,30 +500,59 @@ If no library is found, the command explains how to create one.
 
 ### /use-skill
 
-Invoke any skill, agent, or guide from the team library by name.
+Invoke any skill, agent, or guide from the team library. There are three ways to use it:
+
+#### Option 1 — Searchable picker (recommended)
+
+Type `/use-skill` with no arguments. A searchable Quick Pick menu opens showing every skill, agent, and guide in the library with its description. Type to filter, arrow keys to navigate, Enter to run.
 
 ```
-@aem /use-skill name=new-hero-component
+@aem /use-skill
+```
+
+#### Option 2 — Clickable suggestions after commands
+
+After running scaffold or review commands (`/new-component`, `/diff`, `/scan`, etc.), clickable suggestion chips appear below the response. Click any chip to run the related skill or agent immediately — no typing required.
+
+#### Option 3 — Direct by name (power users)
+
+If you already know the name, pass it directly:
+
+```
 @aem /use-skill name=component-reviewer
-@aem /use-skill name=deployment-checklist
+@aem /use-skill name=new-hero-component
 ```
 
 **Parameters**
 
 | Parameter | Required | Description |
 |---|---|---|
-| `name` | Yes | Name of the skill, agent, or guide to invoke |
+| `name` | No | Name of the skill, agent, or guide — omit to open the picker |
 | Any other `key=value` | No | Passed as additional context to the skill |
 
 **Behaviour by entry type**
 
-| Type | What happens |
-|---|---|
-| **Skill** | The skill's body is treated as a detailed prompt instruction set. The extension executes those instructions using the workspace context to fill in real project values. |
-| **Agent** | The agent's `instructions` field becomes the persona for this conversation turn. The response opens with `Acting as agent: {name} — {description}`. |
-| **Guide** | The guide content is rendered with real project values substituted from the workspace scan. |
+| Type | Icon in picker | What happens |
+|---|---|---|
+| **Skill** | `$(symbol-method)` | The skill's body is treated as a detailed prompt instruction set. The extension executes those instructions using the workspace context to fill in real project values. |
+| **Agent** | `$(robot)` | The agent's `instructions` field becomes the persona for this conversation turn. The response opens with `Acting as agent: {name} — {description}`. |
+| **Guide** | `$(book)` | The guide content is rendered with real project values substituted from the workspace scan. |
 
 All three types use the workspace scan — real paths, site name, and naming conventions are always substituted.
+
+**Suggestions after commands**
+
+The extension surfaces up to 3 relevant follow-ups after each command, drawn only from skills/agents that actually exist in your library:
+
+| After this command | Typical suggestions |
+|---|---|
+| `/new-component` | component-reviewer, accessibility-auditor, htl-refactor |
+| `/diff` | migration-helper, component-reviewer, accessibility-auditor |
+| `/scan` | component-reviewer, migration-helper |
+| `/debug` | htl-refactor |
+| `/new-site` | migration-helper |
+
+A **Browse team library** chip always appears as the last option.
 
 ---
 
@@ -727,6 +756,6 @@ All parameters use `key=value` syntax. Multi-word values must be quoted: `title=
 | `/scan` | _(no parameters)_ |
 | `/diff` | _(no parameters)_ |
 | `/list-skills` | _(no parameters)_ |
-| `/use-skill` | `name` + any additional context parameters |
+| `/use-skill` | `name` (optional — omit to open picker) + any additional context parameters |
 
 All parameters are optional when their values can be inferred from the workspace scan. The extension will state what it detected and flag any assumptions it made.
