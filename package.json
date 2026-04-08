@@ -1,7 +1,7 @@
 {
   "name": "aem-copilot-assistant",
   "displayName": "AEM Copilot Assistant",
-  "description": "GitHub Copilot slash commands for AEM 6.5 site development — scaffolds sites, templates, themes, components, and pages with step-by-step guidance.",
+  "description": "GitHub Copilot slash commands for AEM site development — scaffolds sites, templates, themes, components, and pages with step-by-step guidance.",
   "version": "1.0.0",
   "publisher": "your-publisher-id",
   "author": {
