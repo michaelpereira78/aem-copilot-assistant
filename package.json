@@ -4,6 +4,10 @@
   "description": "GitHub Copilot slash commands for AEM 6.5 site development — scaffolds sites, templates, themes, components, and pages with step-by-step guidance.",
   "version": "1.0.0",
   "publisher": "your-publisher-id",
+  "author": {
+    "name": "Michael Pereira",
+    "url": "https://michaelpereira.net"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
