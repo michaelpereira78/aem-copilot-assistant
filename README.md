@@ -20,6 +20,13 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [/debug](#debug)
   - [/scan](#scan)
   - [/diff](#diff)
+  - [/init-copilot](#init-copilot)
+- [Copilot Instructions](#copilot-instructions)
+  - [What is in the generated file](#what-is-in-the-generated-file)
+  - [Smart sync — preserving your edits](#smart-sync--preserving-your-edits)
+  - [Sidebar panel](#sidebar-panel)
+  - [VS Code commands](#vs-code-commands)
+  - [Customizing the file](#customizing-the-file)
 - [Team Library](#team-library)
   - [Library structure](#library-structure)
   - [Skill file format](#skill-file-format)
@@ -335,6 +342,116 @@ Compares the detected project structure against AEM 6.5 best practices and produ
 - **ClientLib review** — `allowProxy`, category naming consistency, page vs component separation
 - **Naming consistency** — flags any artifact type with mixed naming conventions
 - **Priority action list** — top 5 issues ranked by impact, each with the exact slash command to fix it (parameters pre-filled from the scan)
+
+---
+
+### /init-copilot
+
+Generates or syncs `.github/copilot-instructions.md` from a live workspace scan. GitHub Copilot Chat reads this file automatically for every response in the workspace — giving base Copilot the same project context that `@aem` commands use.
+
+```
+@aem /init-copilot
+```
+
+**On first run** the file is created at `.github/copilot-instructions.md` with three sections:
+
+1. An auto-generated project block (site name, components, templates, naming conventions)
+2. A usage guide for all `@aem` slash commands
+3. AEM 6.5 coding rules Copilot must follow
+
+**On subsequent runs** only the auto-generated block is refreshed. Everything you have written in the Custom instructions section is preserved.
+
+After writing the file, the assistant explains what was generated, recommends workspace-specific additions to the Custom section, and offers a button to open the file.
+
+> **No parameters.** The command derives everything from the workspace scan.
+
+---
+
+## Copilot Instructions
+
+`.github/copilot-instructions.md` is a file that GitHub Copilot Chat reads automatically for every response in your workspace — no `@aem` prefix required. It tells base Copilot what kind of project this is, what rules to follow, and how to use the `@aem` commands.
+
+The extension manages this file so you do not have to write or maintain it by hand.
+
+---
+
+### What is in the generated file
+
+| Section | Content | Editable? |
+|---|---|---|
+| Auto-generated project block | Site name, groupId, project type, root paths, template list, component list, Sling models, naming conventions — all detected from the live workspace scan | No — refreshed on every sync |
+| AEM Copilot usage guide | Full `@aem` command table with descriptions | Yes (outside the markers) |
+| AEM 6.5 coding rules | Sling Models, HTL-only, ClientLib category naming, dialog requirements, XML standards | Yes |
+| Custom instructions | Blank section for team-specific rules, preferences, and standards | Yes — never overwritten |
+
+---
+
+### Smart sync — preserving your edits
+
+The auto-generated block is wrapped in HTML comment markers:
+
+```
+<!-- BEGIN AEM COPILOT GENERATED -->
+...detected project data...
+<!-- END AEM COPILOT GENERATED -->
+```
+
+When you run `/init-copilot` again (or use **Sync** from the command palette or sidebar), only the content between these markers is replaced. Everything outside them — including the AEM 6.5 coding rules and your Custom instructions — is left exactly as you wrote it.
+
+**Never edit inside the markers.** Your changes will be overwritten on the next sync. Put team-specific rules in the Custom instructions section at the bottom of the file.
+
+---
+
+### Sidebar panel
+
+A **Copilot Instructions** panel appears at the top of the AEM Library sidebar (the same activity bar icon as the Team Library). It shows:
+
+- **File found** — the relative path and how recently it was updated (e.g. "updated 3h ago"). Click the item to open the file.
+- **Not generated yet** — a prompt to run Generate.
+
+**Toolbar actions on the panel:**
+
+| Button | What it does |
+|---|---|
+| `$(sparkle)` Generate | Scans the workspace and creates `.github/copilot-instructions.md` |
+| `$(sync)` Sync | Re-scans and refreshes only the auto-generated block |
+| `$(refresh)` Refresh | Re-checks file status without modifying anything |
+
+---
+
+### VS Code commands
+
+All three commands are available from the **Command Palette** (`Ctrl+Shift+P` / `Cmd+Shift+P`). Search for `AEM Copilot`:
+
+| Command | Description |
+|---|---|
+| **AEM Copilot: Generate Copilot Instructions** | Scans the workspace and creates (or overwrites) `.github/copilot-instructions.md`. Offers "Open file" after writing. |
+| **AEM Copilot: Sync Copilot Instructions** | Re-scans and refreshes the `BEGIN/END GENERATED` block only. Safe to run at any time — custom content is never touched. |
+| **AEM Copilot: Open Copilot Instructions** | Opens `.github/copilot-instructions.md` in the editor. If the file does not exist, prompts you to generate it first. |
+
+---
+
+### Customizing the file
+
+After generating the file, open it and scroll to the **Custom instructions** section at the bottom. Add anything Copilot should always know about your project. Examples:
+
+```markdown
+## Custom instructions
+
+- All Java interfaces live in `core/src/main/java/com/mybrand/core/models/`
+  and implementations in the `.impl` sub-package.
+- The primary site for new development is `my-brand`. Ignore `my-brand-legacy`.
+- Use `mybrand.base` for page-level clientlibs and `mybrand.components` for
+  component-level clientlibs.
+- Never generate JSP or WCMUsePojo — the codebase was fully migrated in 2023.
+- Heading levels in HTL must always be authored (not hardcoded) using a
+  `headingElement` dialog field.
+```
+
+**When to re-sync:** Run **Sync Copilot Instructions** after any of these:
+- Adding new components or templates (so Copilot sees the updated list)
+- Restructuring Maven modules (so detected root paths are accurate)
+- Adding Sling models (so the Java package can be inferred correctly)
 
 ---
 
@@ -757,5 +874,6 @@ All parameters use `key=value` syntax. Multi-word values must be quoted: `title=
 | `/diff` | _(no parameters)_ |
 | `/list-skills` | _(no parameters)_ |
 | `/use-skill` | `name` (optional — omit to open picker) + any additional context parameters |
+| `/init-copilot` | _(no parameters — derives everything from the workspace scan)_ |
 
 All parameters are optional when their values can be inferred from the workspace scan. The extension will state what it detected and flag any assumptions it made.

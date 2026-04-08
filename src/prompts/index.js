@@ -12,6 +12,7 @@ const { PROMPT_SCAN }          = require('./scan');
 const { PROMPT_DIFF }          = require('./diff');
 const { PROMPT_LIST_SKILLS }   = require('./listSkills');
 const { PROMPT_USE_SKILL }     = require('./useSkill');
+const { PROMPT_INIT_COPILOT }  = require('./initCopilot');
 
 const PROMPTS = {
   'new-site':      PROMPT_NEW_SITE,
@@ -25,7 +26,8 @@ const PROMPTS = {
   'scan':          PROMPT_SCAN,
   'diff':          PROMPT_DIFF,
   'list-skills':   PROMPT_LIST_SKILLS,
-  'use-skill':     PROMPT_USE_SKILL
+  'use-skill':     PROMPT_USE_SKILL,
+  'init-copilot':  PROMPT_INIT_COPILOT
 };
 
 module.exports = { PROMPTS };

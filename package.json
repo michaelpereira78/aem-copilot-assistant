@@ -28,6 +28,12 @@
     "views": {
       "aem-library-container": [
         {
+          "id": "aem-copilot.instructionsView",
+          "name": "Copilot Instructions",
+          "icon": "icon-sidebar.svg",
+          "contextualTitle": "AEM Copilot — Copilot Instructions"
+        },
+        {
           "id": "aem-copilot.libraryView",
           "name": "Team Library",
           "icon": "icon-sidebar.svg",
@@ -36,6 +42,30 @@
       ]
     },
     "commands": [
+      {
+        "command": "aem-copilot.generateCopilotInstructions",
+        "title": "Generate Copilot Instructions",
+        "icon": "$(sparkle)",
+        "category": "AEM Copilot"
+      },
+      {
+        "command": "aem-copilot.syncCopilotInstructions",
+        "title": "Sync Copilot Instructions",
+        "icon": "$(sync)",
+        "category": "AEM Copilot"
+      },
+      {
+        "command": "aem-copilot.openCopilotInstructions",
+        "title": "Open Copilot Instructions",
+        "icon": "$(go-to-file)",
+        "category": "AEM Copilot"
+      },
+      {
+        "command": "aem-copilot.refreshInstructionsView",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "AEM Copilot"
+      },
       {
         "command": "aem-copilot.refreshLibrary",
         "title": "Refresh Library",
@@ -93,6 +123,21 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "aem-copilot.generateCopilotInstructions",
+          "when": "view == aem-copilot.instructionsView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aem-copilot.syncCopilotInstructions",
+          "when": "view == aem-copilot.instructionsView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "aem-copilot.refreshInstructionsView",
+          "when": "view == aem-copilot.instructionsView",
+          "group": "navigation@3"
+        },
         {
           "command": "aem-copilot.newEntry",
           "when": "view == aem-copilot.libraryView",
@@ -197,6 +242,10 @@
           {
             "name": "use-skill",
             "description": "Invoke a skill, agent, or guide from the team library. Run with no arguments to open a searchable picker, or pass name=x to invoke directly."
+          },
+          {
+            "name": "init-copilot",
+            "description": "Generate or sync .github/copilot-instructions.md from a live workspace scan. Creates the file on first run; on subsequent runs it refreshes only the auto-generated section, preserving your custom rules."
           }
         ]
       }

@@ -7,6 +7,8 @@ const { ContextBuilder } = require('./scanner/ContextBuilder');
 const { LibraryScanner } = require('./scanner/LibraryScanner');
 const { LibraryTreeProvider } = require('./views/LibraryTreeProvider');
 const LibraryCommands = require('./views/LibraryCommands');
+const { CopilotInstructionsManager } = require('./commands/CopilotInstructionsManager');
+const { CopilotInstructionsView }    = require('./views/CopilotInstructionsView');
 
 /**
  * Parse named parameters from a Copilot slash command input.
@@ -197,6 +199,44 @@ const COMMAND_FOLLOWUP_HINTS = {
 };
 
 /**
+ * Handler for /init-copilot.
+ * 1. Scans the workspace.
+ * 2. Writes (or syncs) .github/copilot-instructions.md.
+ * 3. Streams an AI explanation of what was written and what to do next.
+ * 4. Offers an Open button as a follow-up action.
+ */
+async function initCopilotHandler(request, _context, stream, token) {
+  stream.progress('Scanning workspace…');
+
+  const projectCtx = await WorkspaceScanner.scan();
+
+  let filePath;
+  let isSync = false;
+  try {
+    isSync   = await CopilotInstructionsManager.exists();
+    filePath = await CopilotInstructionsManager.write(projectCtx);
+    const relPath = vscode.workspace.asRelativePath(filePath);
+    stream.markdown(`> **AEM Assistant:** \`${relPath}\` ${isSync ? 'synced' : 'created'} — Copilot will read it automatically.\n\n`);
+  } catch (err) {
+    stream.markdown(`> **Error:** Could not write copilot-instructions.md — ${err.message}\n\n`);
+    return;
+  }
+
+  // Refresh the sidebar panel so it picks up the new status immediately
+  vscode.commands.executeCommand('aem-copilot.refreshInstructionsView');
+
+  // Use AI to explain what was done and recommend next steps
+  const contextBlock = ContextBuilder.build(projectCtx);
+  const userMessage  = `The file .github/copilot-instructions.md was just ${isSync ? 'synced' : 'created'}. ${request.prompt}`;
+  await streamResponse(contextBlock, PROMPTS['init-copilot'], userMessage, stream, token);
+
+  stream.button({
+    command: 'aem-copilot.openCopilotInstructions',
+    title: '$(go-to-file) Open copilot-instructions.md'
+  });
+}
+
+/**
  * Extension activation — registers the @aem chat participant
  * and wires up all slash command handlers.
  */
@@ -258,6 +298,56 @@ function activate(context) {
       item => LibraryCommands.duplicateEntry(item, treeProvider)),
     vscode.commands.registerCommand('aem-copilot.deleteEntry',
       item => LibraryCommands.deleteEntry(item, treeProvider))
+  );
+
+  // ── Copilot Instructions sidebar view ────────────────────────────────────────
+  const instructionsView = new CopilotInstructionsView();
+
+  context.subscriptions.push(
+    vscode.window.createTreeView('aem-copilot.instructionsView', {
+      treeDataProvider: instructionsView,
+      showCollapseAll: false
+    })
+  );
+
+  // ── Copilot Instructions commands ─────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('aem-copilot.refreshInstructionsView', () => {
+      instructionsView.refresh();
+    }),
+
+    vscode.commands.registerCommand('aem-copilot.generateCopilotInstructions', async () => {
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'AEM Copilot: Scanning workspace…', cancellable: false },
+        async () => {
+          const projectCtx = await WorkspaceScanner.scan();
+          const filePath   = await CopilotInstructionsManager.write(projectCtx);
+          instructionsView.refresh();
+          const relPath = vscode.workspace.asRelativePath(filePath);
+          const choice  = await vscode.window.showInformationMessage(
+            `AEM Copilot: \`${relPath}\` created.`,
+            'Open file'
+          );
+          if (choice === 'Open file') await CopilotInstructionsManager.open();
+        }
+      );
+    }),
+
+    vscode.commands.registerCommand('aem-copilot.syncCopilotInstructions', async () => {
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'AEM Copilot: Syncing instructions…', cancellable: false },
+        async () => {
+          const projectCtx = await WorkspaceScanner.scan();
+          await CopilotInstructionsManager.write(projectCtx);
+          instructionsView.refresh();
+          vscode.window.showInformationMessage('AEM Copilot: copilot-instructions.md synced.');
+        }
+      );
+    }),
+
+    vscode.commands.registerCommand('aem-copilot.openCopilotInstructions', () => {
+      CopilotInstructionsManager.open();
+    })
   );
 
   /**
@@ -322,6 +412,7 @@ function activate(context) {
 function deactivate() {}
 
 const COMMAND_HANDLERS = {
+  'init-copilot':  initCopilotHandler,
   'new-site':      makeHandler('new-site'),
   'new-template':  makeHandler('new-template'),
   'new-theme':     makeHandler('new-theme'),
@@ -354,6 +445,7 @@ const COMMAND_HANDLERS = {
       '| `/diff` | Compare project structure against AEM 6.5 best practices |',
       '| `/list-skills` | Browse the team library: skills, agents, and guides |',
       '| `/use-skill` | Pick a skill, agent, or guide from a searchable menu |',
+      '| `/init-copilot` | Generate or sync `.github/copilot-instructions.md` from a workspace scan |',
       '',
       '> Parameters are optional — if your workspace is already set up, I will detect site name, paths, naming conventions, and existing patterns automatically.',
       '',
