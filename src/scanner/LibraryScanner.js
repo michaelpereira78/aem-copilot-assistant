@@ -37,7 +37,7 @@ class LibraryScanner {
    */
   static async scan() {
     try {
-      const results = { skills: [], agents: [], guides: [], sources: [] };
+      const results = { skills: [], agents: [], guides: [], pipelines: [], sources: [] };
 
       // 1. Shared library from settings
       const sharedPath = LibraryScanner._resolvedSharedPath();
@@ -59,13 +59,14 @@ class LibraryScanner {
       if (sharedPath) results.sources.unshift(sharedPath);
 
       // Deduplicate by name (local wins over shared)
-      results.skills = LibraryScanner._dedupeByName(results.skills);
-      results.agents = LibraryScanner._dedupeByName(results.agents);
-      results.guides = LibraryScanner._dedupeByName(results.guides);
+      results.skills    = LibraryScanner._dedupeByName(results.skills);
+      results.agents    = LibraryScanner._dedupeByName(results.agents);
+      results.guides    = LibraryScanner._dedupeByName(results.guides);
+      results.pipelines = LibraryScanner._dedupeByName(results.pipelines);
 
       return results;
     } catch (err) {
-      return { skills: [], agents: [], guides: [], sources: [], error: err.message };
+      return { skills: [], agents: [], guides: [], pipelines: [], sources: [], error: err.message };
     }
   }
 
@@ -74,19 +75,22 @@ class LibraryScanner {
   // ---------------------------------------------------------------------------
 
   static async _scanLocation(rootPath, results, source) {
-    const skillsPath  = path.join(rootPath, 'skills');
-    const agentsPath  = path.join(rootPath, 'agents');
-    const guidesPath  = path.join(rootPath, 'guides');
+    const skillsPath    = path.join(rootPath, 'skills');
+    const agentsPath    = path.join(rootPath, 'agents');
+    const guidesPath    = path.join(rootPath, 'guides');
+    const pipelinesPath = path.join(rootPath, 'pipelines');
 
-    const [skills, agents, guides] = await Promise.all([
+    const [skills, agents, guides, pipelines] = await Promise.all([
       LibraryScanner._readMarkdownDir(skillsPath, source),
       LibraryScanner._readJsonDir(agentsPath, source),
-      LibraryScanner._readMarkdownDir(guidesPath, source)
+      LibraryScanner._readMarkdownDir(guidesPath, source),
+      LibraryScanner._readPipelinesDir(pipelinesPath, source)
     ]);
 
     results.skills.push(...skills);
     results.agents.push(...agents);
     results.guides.push(...guides);
+    results.pipelines.push(...pipelines);
   }
 
   // ---------------------------------------------------------------------------
@@ -145,6 +149,34 @@ class LibraryScanner {
           instructions: parsed.instructions || '',
           tools:        parsed.tools || [],
           path: fullPath,
+          source
+        });
+      } catch (_) {}
+    }
+
+    return items;
+  }
+
+  static async _readPipelinesDir(dirPath, source) {
+    const entries  = await LibraryScanner._listDir(dirPath);
+    const jsonFiles = entries.filter(([name]) => name.endsWith('.json'));
+    const items    = [];
+
+    for (const [filename] of jsonFiles) {
+      try {
+        const fullPath = path.join(dirPath, filename);
+        const uri      = vscode.Uri.file(fullPath);
+        const raw      = await LibraryScanner._readFile(uri);
+        if (!raw) continue;
+
+        const parsed = JSON.parse(raw);
+        items.push({
+          name:        parsed.name        || path.basename(filename, '.json'),
+          description: parsed.description || '',
+          topic:       parsed.topic       || 'general',
+          tags:        LibraryScanner._parseTags(parsed.tags),
+          steps:       Array.isArray(parsed.steps) ? parsed.steps : [],
+          path:        fullPath,
           source
         });
       } catch (_) {}

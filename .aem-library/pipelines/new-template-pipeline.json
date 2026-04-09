@@ -1,0 +1,18 @@
+{
+  "name": "new-template-pipeline",
+  "description": "Build a complete AEM editable template then review it for correctness and best practices",
+  "topic": "templates",
+  "tags": ["template", "scaffold", "review"],
+  "steps": [
+    {
+      "label": "Build Template",
+      "agent": "aem-template-builder",
+      "haltOnIssues": false
+    },
+    {
+      "label": "Code Review",
+      "agent": "aem-code-reviewer",
+      "haltOnIssues": true
+    }
+  ]
+}

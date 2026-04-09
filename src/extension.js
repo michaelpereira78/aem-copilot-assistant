@@ -9,6 +9,7 @@ const { LibraryTreeProvider } = require('./views/LibraryTreeProvider');
 const LibraryCommands = require('./views/LibraryCommands');
 const { CopilotInstructionsManager } = require('./commands/CopilotInstructionsManager');
 const { CopilotInstructionsView }    = require('./views/CopilotInstructionsView');
+const { PipelineRunner }             = require('./pipelines/PipelineRunner');
 
 /**
  * Parse named parameters from a Copilot slash command input.
@@ -199,6 +200,101 @@ const COMMAND_FOLLOWUP_HINTS = {
 };
 
 /**
+ * Show a searchable Quick Pick of all pipelines in the library.
+ * Returns the selected pipeline object, or null if cancelled / none found.
+ */
+async function pickPipeline(library) {
+  if (!library.pipelines || library.pipelines.length === 0) return null;
+
+  const items = library.pipelines.map(p => ({
+    label:       `$(circuit-board)  ${p.name}`,
+    description: `${p.steps.length} step${p.steps.length !== 1 ? 's' : ''}`,
+    detail:      p.description,
+    pipeline:    p
+  }));
+
+  const picked = await vscode.window.showQuickPick(items, {
+    title:             'AEM Pipelines',
+    placeHolder:       'Search pipelines…',
+    matchOnDescription: true,
+    matchOnDetail:      true
+  });
+
+  return picked ? picked.pipeline : null;
+}
+
+/**
+ * Handler for /run-pipeline.
+ * - With name= parameter: runs directly.
+ * - Without name=: opens a Quick Pick of available pipelines.
+ * Each step streams in real time; the output of each step feeds the next.
+ * A step with haltOnIssues: true will stop the pipeline if CRITICAL is detected.
+ */
+async function runPipelineHandler(request, _context, stream, token) {
+  const params = parseParams(request.prompt);
+
+  stream.progress('Loading library…');
+  const library = await LibraryScanner.scan();
+
+  let pipeline;
+
+  if (params.name) {
+    pipeline = (library.pipelines || []).find(p => p.name === params.name);
+    if (!pipeline) {
+      stream.markdown(
+        `> **AEM Assistant:** Pipeline \`${params.name}\` not found in the library.\n\n` +
+        `> Available pipelines: ${(library.pipelines || []).map(p => `\`${p.name}\``).join(', ') || '_(none)_'}\n`
+      );
+      return;
+    }
+  } else {
+    pipeline = await pickPipeline(library);
+    if (!pipeline) {
+      // No pipelines at all — fall through to the explanation prompt
+      stream.progress('Scanning workspace…');
+      const projectCtx = await WorkspaceScanner.scan();
+      const contextBlock = ContextBuilder.build(projectCtx);
+      await streamResponse(contextBlock, PROMPTS['run-pipeline'], 'No pipeline selected.', stream, token);
+      return;
+    }
+    stream.markdown(`> Running pipeline: **${pipeline.name}**\n\n`);
+  }
+
+  stream.progress('Scanning workspace…');
+  const projectCtx   = await WorkspaceScanner.scan();
+  const contextBlock = ContextBuilder.build(projectCtx);
+
+  // Build user params string (strip name=, pass the rest)
+  const { name: _n, _rest, ...otherParams } = params;
+  const userParams = [
+    Object.entries(otherParams).map(([k, v]) => `${k}=${v}`).join(' '),
+    _rest
+  ].filter(Boolean).join(' ').trim();
+
+  await PipelineRunner.run(pipeline, library, contextBlock, userParams, stream, token);
+}
+
+/**
+ * Handler for /build-pipeline.
+ * Launches the step-by-step wizard from LibraryCommands and confirms when done.
+ */
+async function buildPipelineHandler(request, _context, stream, _token) {
+  stream.markdown(
+    '> **AEM Assistant:** Opening the pipeline wizard…\n\n' +
+    '> Answer the prompts in VS Code to name your pipeline, describe it, and add steps.\n' +
+    '> The file will be saved to `.aem-library/pipelines/` and available immediately.\n\n'
+  );
+
+  await LibraryCommands.createPipeline({
+    refresh: () => vscode.commands.executeCommand('aem-copilot.refreshLibrary')
+  });
+
+  stream.markdown(
+    '> Pipeline saved. Run it with `@aem /run-pipeline` or click it in the **AEM Library** sidebar.\n'
+  );
+}
+
+/**
  * Handler for /init-copilot.
  * 1. Scans the workspace.
  * 2. Writes (or syncs) .github/copilot-instructions.md.
@@ -350,6 +446,24 @@ function activate(context) {
     })
   );
 
+  // ── Pipeline commands ─────────────────────────────────────────────────────────
+  context.subscriptions.push(
+    // Triggered by clicking a pipeline item in the sidebar
+    vscode.commands.registerCommand('aem-copilot.runPipelineByName', async (pipelineName) => {
+      await vscode.commands.executeCommand('workbench.action.chat.open');
+      // Insert the /run-pipeline command into Copilot Chat via clipboard trick
+      await vscode.env.clipboard.writeText(`@aem /run-pipeline name=${pipelineName}`);
+      await vscode.window.showInformationMessage(
+        `Paste into Copilot Chat to run: @aem /run-pipeline name=${pipelineName}`,
+        'Copy command'
+      );
+    }),
+
+    vscode.commands.registerCommand('aem-copilot.newPipeline', async () => {
+      await LibraryCommands.createPipeline(treeProvider);
+    })
+  );
+
   /**
    * Followup provider — surfaces relevant skills and agents as clickable
    * suggestion chips below responses. Only shows entries that actually exist
@@ -412,6 +526,8 @@ function activate(context) {
 function deactivate() {}
 
 const COMMAND_HANDLERS = {
+  'run-pipeline':  runPipelineHandler,
+  'build-pipeline': buildPipelineHandler,
   'init-copilot':  initCopilotHandler,
   'new-site':      makeHandler('new-site'),
   'new-template':  makeHandler('new-template'),
@@ -446,6 +562,8 @@ const COMMAND_HANDLERS = {
       '| `/list-skills` | Browse the team library: skills, agents, and guides |',
       '| `/use-skill` | Pick a skill, agent, or guide from a searchable menu |',
       '| `/init-copilot` | Generate or sync `.github/copilot-instructions.md` from a workspace scan |',
+      '| `/run-pipeline` | Run a pipeline — chains agents in sequence, each receiving the previous step\'s output |',
+      '| `/build-pipeline` | Step-by-step wizard to compose and save a new pipeline |',
       '',
       '> Parameters are optional — if your workspace is already set up, I will detect site name, paths, naming conventions, and existing patterns automatically.',
       '',

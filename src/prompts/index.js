@@ -13,6 +13,7 @@ const { PROMPT_DIFF }          = require('./diff');
 const { PROMPT_LIST_SKILLS }   = require('./listSkills');
 const { PROMPT_USE_SKILL }     = require('./useSkill');
 const { PROMPT_INIT_COPILOT }  = require('./initCopilot');
+const { PROMPT_RUN_PIPELINE }  = require('./runPipeline');
 
 const PROMPTS = {
   'new-site':      PROMPT_NEW_SITE,
@@ -27,7 +28,8 @@ const PROMPTS = {
   'diff':          PROMPT_DIFF,
   'list-skills':   PROMPT_LIST_SKILLS,
   'use-skill':     PROMPT_USE_SKILL,
-  'init-copilot':  PROMPT_INIT_COPILOT
+  'init-copilot':  PROMPT_INIT_COPILOT,
+  'run-pipeline':  PROMPT_RUN_PIPELINE
 };
 
 module.exports = { PROMPTS };

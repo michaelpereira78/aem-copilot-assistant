@@ -1,0 +1,23 @@
+{
+  "name": "new-component-pipeline",
+  "description": "Build a complete AEM component, review it for best practices, then generate unit tests and a QA checklist",
+  "topic": "components",
+  "tags": ["component", "scaffold", "review", "testing"],
+  "steps": [
+    {
+      "label": "Build Component",
+      "agent": "aem-component-builder",
+      "haltOnIssues": false
+    },
+    {
+      "label": "Code Review",
+      "agent": "aem-code-reviewer",
+      "haltOnIssues": true
+    },
+    {
+      "label": "Generate Tests & QA Checklist",
+      "agent": "aem-tester",
+      "haltOnIssues": false
+    }
+  ]
+}

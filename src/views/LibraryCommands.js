@@ -50,6 +50,24 @@ function agentTemplate(name) {
   );
 }
 
+function pipelineTemplate(name, steps) {
+  return JSON.stringify(
+    {
+      name,
+      description: 'Brief one-line description of what this pipeline does',
+      topic: 'components',
+      tags: ['pipeline'],
+      steps: steps.length > 0 ? steps : [
+        { label: 'Build', agent: 'aem-component-builder', haltOnIssues: false },
+        { label: 'Review', agent: 'aem-code-reviewer', haltOnIssues: true },
+        { label: 'Test', agent: 'aem-tester', haltOnIssues: false }
+      ]
+    },
+    null,
+    2
+  );
+}
+
 function guideTemplate(name) {
   return `---
 name: ${name}
@@ -96,9 +114,114 @@ async function resolveWriteDir(type) {
   return path.join(folders[0].uri.fsPath, '.aem-library', type);
 }
 
+// ─── Pipeline wizard ──────────────────────────────────────────────────────────
+
+async function createPipeline(provider) {
+  // Step 1: name
+  const name = await vscode.window.showInputBox({
+    title: 'New Pipeline (1/3) — Name',
+    prompt: 'Enter a name for the pipeline (kebab-case, e.g. my-component-pipeline)',
+    placeHolder: 'my-pipeline',
+    validateInput(v) {
+      if (!v || !v.trim()) return 'Name is required';
+      if (/\s/.test(v)) return 'No spaces — use kebab-case';
+      if (/[^a-zA-Z0-9\-_]/.test(v)) return 'Only letters, numbers, hyphens, and underscores allowed';
+      return null;
+    }
+  });
+  if (!name) return;
+
+  // Step 2: description
+  const description = await vscode.window.showInputBox({
+    title: 'New Pipeline (2/3) — Description',
+    prompt: 'One-line description of what this pipeline does',
+    placeHolder: 'Build, review, and test a new AEM component',
+    validateInput(v) {
+      if (!v || !v.trim()) return 'Description is required';
+      return null;
+    }
+  });
+  if (!description) return;
+
+  // Step 3: add steps interactively
+  const steps = [];
+  let addingSteps = true;
+
+  while (addingSteps) {
+    const action = await vscode.window.showQuickPick(
+      [
+        { label: '$(add) Add a step', value: 'add' },
+        { label: `$(check) Done — create pipeline with ${steps.length} step${steps.length !== 1 ? 's' : ''}`, value: 'done' }
+      ],
+      {
+        title: `New Pipeline (3/3) — Steps  [${steps.length} added so far]`,
+        placeHolder: steps.length === 0
+          ? 'Add at least one step to the pipeline'
+          : steps.map((s, i) => `${i + 1}. ${s.label}`).join('  →  ')
+      }
+    );
+
+    if (!action || action.value === 'done') {
+      addingSteps = false;
+      break;
+    }
+
+    // Pick an agent or skill name
+    const entryName = await vscode.window.showInputBox({
+      title: `Step ${steps.length + 1} — Agent or skill name`,
+      prompt: 'Enter the name= of an agent, skill, or guide from the library',
+      placeHolder: 'aem-code-reviewer',
+      validateInput(v) {
+        if (!v || !v.trim()) return 'Entry name is required';
+        return null;
+      }
+    });
+    if (!entryName) continue;
+
+    const stepLabel = await vscode.window.showInputBox({
+      title: `Step ${steps.length + 1} — Label`,
+      prompt: 'Short label shown in the pipeline output (e.g. "Code Review")',
+      value: entryName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    });
+    if (!stepLabel) continue;
+
+    const haltPick = await vscode.window.showQuickPick(
+      [
+        { label: '$(circle-slash) No — continue even if this step finds issues', value: false },
+        { label: '$(stop) Yes — halt the pipeline if this step outputs CRITICAL', value: true }
+      ],
+      { title: `Step ${steps.length + 1} — Halt on critical issues?` }
+    );
+    if (!haltPick) continue;
+
+    steps.push({ label: stepLabel, agent: entryName, haltOnIssues: haltPick.value });
+  }
+
+  if (steps.length === 0) {
+    vscode.window.showWarningMessage('Pipeline not created — at least one step is required.');
+    return;
+  }
+
+  // Write the file
+  const dir = await resolveWriteDir('pipelines');
+  if (!dir) return;
+  await ensureDir(dir);
+
+  const filePath = path.join(dir, `${name}.json`);
+  const content  = JSON.stringify({ name, description, topic: 'general', tags: ['pipeline'], steps }, null, 2);
+  const fileUri  = await writeFile(filePath, content);
+  provider.refresh();
+
+  const doc = await vscode.workspace.openTextDocument(fileUri);
+  await vscode.window.showTextDocument(doc);
+  vscode.window.showInformationMessage(`Pipeline created: ${name} (${steps.length} steps)`);
+}
+
 // ─── Create handlers ──────────────────────────────────────────────────────────
 
 async function createEntry(type, provider) {
+  if (type === 'pipelines') return createPipeline(provider);
+
   const typeLabel = type.slice(0, -1); // 'skills' → 'skill'
   const ext = type === 'agents' ? '.json' : '.md';
 
@@ -133,8 +256,9 @@ async function createEntry(type, provider) {
     if (overwrite !== 'Overwrite') return;
   } catch (_) {} // doesn't exist yet — good
 
-  const template = type === 'skills' ? skillTemplate(name)
-                 : type === 'agents' ? agentTemplate(name)
+  const template = type === 'skills'    ? skillTemplate(name)
+                 : type === 'agents'    ? agentTemplate(name)
+                 : type === 'pipelines' ? pipelineTemplate(name, [])
                  : guideTemplate(name);
 
   const fileUri = await writeFile(filePath, template);
@@ -266,6 +390,7 @@ async function duplicateEntry(item, provider) {
 
 module.exports = {
   createEntry,
+  createPipeline,
   editEntry,
   renameEntry,
   deleteEntry,

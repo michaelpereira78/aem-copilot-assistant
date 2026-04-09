@@ -21,6 +21,8 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [/scan](#scan)
   - [/diff](#diff)
   - [/init-copilot](#init-copilot)
+  - [/run-pipeline](#run-pipeline)
+  - [/build-pipeline](#build-pipeline)
 - [Copilot Instructions](#copilot-instructions)
   - [What is in the generated file](#what-is-in-the-generated-file)
   - [Smart sync — preserving your edits](#smart-sync--preserving-your-edits)
@@ -35,10 +37,18 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [Shared library setup](#shared-library-setup)
   - [/list-skills](#list-skills)
   - [/use-skill](#use-skill)
+- [Agent Pipelines](#agent-pipelines)
+  - [How pipelines work](#how-pipelines-work)
+  - [Running a pipeline](#running-a-pipeline)
+  - [Building a pipeline](#building-a-pipeline)
+  - [Pipeline file format](#pipeline-file-format)
+  - [Halt on critical issues](#halt-on-critical-issues)
+  - [Included pipelines](#included-pipelines)
 - [Included Skills](#included-skills)
 - [Included Agents](#included-agents)
+  - [Pipeline agents](#pipeline-agents)
 - [Included Guides](#included-guides)
-- [Adding your own Skills, Agents, and Guides](#adding-your-own-skills-agents-and-guides)
+- [Adding your own Skills, Agents, Guides, and Pipelines](#adding-your-own-skills-agents-guides-and-pipelines)
 - [Parameter reference](#parameter-reference)
 
 ---
@@ -367,6 +377,45 @@ After writing the file, the assistant explains what was generated, recommends wo
 
 ---
 
+### /run-pipeline
+
+Run an agent pipeline — an ordered sequence of agents that execute automatically, each receiving the full output of all previous steps as context.
+
+```
+@aem /run-pipeline
+@aem /run-pipeline name=new-component-pipeline
+@aem /run-pipeline name=new-component-pipeline name=hero site=my-brand
+```
+
+With no arguments a searchable Quick Pick opens listing every pipeline in the library. Select one and it starts immediately. Pass `name=` to skip the picker and run directly. Any additional `key=value` parameters are forwarded to all steps as developer input.
+
+**What happens during a run:**
+
+1. A pipeline header is printed showing the name, description, and step count
+2. Each step runs in sequence — its label, agent, and output are streamed live to chat
+3. Every step receives the workspace context block **plus the full output of all previous steps** — so a reviewer sees exactly what the builder generated
+4. If a step is configured with `haltOnIssues: true` and its output contains `CRITICAL ISSUES FOUND`, the pipeline stops and the developer is asked to fix the issues before continuing
+5. A completion summary is printed when all steps pass
+
+---
+
+### /build-pipeline
+
+Open a step-by-step wizard in VS Code to compose and save a new pipeline.
+
+```
+@aem /build-pipeline
+```
+
+The wizard asks:
+1. **Name** — kebab-case identifier used in `name=` parameter
+2. **Description** — one-liner shown in the picker
+3. **Steps** — add as many as needed; for each step, enter the agent/skill name, a display label, and whether to halt the pipeline on critical issues
+
+The resulting `.json` file is saved to `.aem-library/pipelines/` and immediately appears in the sidebar and the `/run-pipeline` picker.
+
+---
+
 ## Copilot Instructions
 
 `.github/copilot-instructions.md` is a file that GitHub Copilot Chat reads automatically for every response in your workspace — no `@aem` prefix required. It tells base Copilot what kind of project this is, what rules to follow, and how to use the `@aem` commands.
@@ -673,6 +722,194 @@ A **Browse team library** chip always appears as the last option.
 
 ---
 
+## Agent Pipelines
+
+Pipelines let you chain multiple agents together so they run automatically in sequence. Instead of manually copying the output of one agent into the next prompt, the pipeline runner does this for you — each step receives the full output of all previous steps as context before generating its response.
+
+---
+
+### How pipelines work
+
+```
+Developer runs: @aem /run-pipeline name=new-component-pipeline name=hero site=my-brand
+
+Step 1: aem-component-builder  ──▶  generates HTL, Sling model, dialog XML
+         ↓ (full output passed as context)
+Step 2: aem-code-reviewer      ──▶  reviews Step 1's output against AEM checklist
+         ↓ (if CRITICAL found → pipeline halts here)
+Step 3: aem-tester             ──▶  generates JUnit 5 tests + author QA checklist
+```
+
+All three steps stream their output live to the chat window, separated by step headers. The developer can read along as the pipeline progresses.
+
+---
+
+### Running a pipeline
+
+**Option 1 — Searchable picker**
+
+```
+@aem /run-pipeline
+```
+
+A Quick Pick opens listing every pipeline in `.aem-library/pipelines/`. Each entry shows the pipeline name, step count, and description. Select one to start immediately.
+
+**Option 2 — Direct by name**
+
+```
+@aem /run-pipeline name=new-component-pipeline
+```
+
+**Option 3 — With parameters**
+
+Pass any `key=value` parameters after the pipeline name. They are forwarded to every step as developer input:
+
+```
+@aem /run-pipeline name=new-component-pipeline name=hero site=my-brand group="My Brand - Content"
+```
+
+**Option 4 — Sidebar click**
+
+Click any pipeline in the **AEM Library** sidebar (the `$(circuit-board)` Pipelines category). VS Code copies the run command to your clipboard, ready to paste into Copilot Chat.
+
+---
+
+### Building a pipeline
+
+**Option 1 — Wizard (recommended)**
+
+```
+@aem /build-pipeline
+```
+
+A step-by-step Quick Pick wizard opens in VS Code:
+
+1. Enter a name (kebab-case)
+2. Enter a description
+3. Add steps one at a time — for each step, provide the agent/skill name, a display label, and whether to halt on critical issues
+4. When done, the pipeline JSON is saved to `.aem-library/pipelines/` and opened in the editor
+
+**Option 2 — Write JSON directly**
+
+Create a `.json` file in `.aem-library/pipelines/` using the format described below. The sidebar refreshes automatically when the file is saved.
+
+---
+
+### Pipeline file format
+
+```json
+{
+  "name": "my-pipeline",
+  "description": "One-line description shown in the picker",
+  "topic": "components",
+  "tags": ["pipeline", "scaffold"],
+  "steps": [
+    {
+      "label": "Build",
+      "agent": "aem-component-builder",
+      "haltOnIssues": false
+    },
+    {
+      "label": "Code Review",
+      "agent": "aem-code-reviewer",
+      "haltOnIssues": true
+    },
+    {
+      "label": "Generate Tests",
+      "agent": "aem-tester",
+      "haltOnIssues": false
+    }
+  ]
+}
+```
+
+**Step fields**
+
+| Field | Required | Description |
+|---|---|---|
+| `label` | Yes | Display name shown in the pipeline step header during execution |
+| `agent` | Yes* | Name of an agent from `.aem-library/agents/` |
+| `skill` | Yes* | Name of a skill from `.aem-library/skills/` (use `agent` or `skill`, not both) |
+| `guide` | Yes* | Name of a guide from `.aem-library/guides/` |
+| `haltOnIssues` | No | If `true`, the pipeline stops when the step's output contains `CRITICAL ISSUES FOUND`. Default: `false` |
+
+*Exactly one of `agent`, `skill`, or `guide` is required per step.
+
+---
+
+### Halt on critical issues
+
+When `haltOnIssues: true` is set on a step, the pipeline runner scans the step's output for the phrase `CRITICAL ISSUES FOUND` (produced by the `aem-code-reviewer` agent and any agent that follows the same verdict format). If detected:
+
+- The pipeline stops immediately after that step
+- A `🛑 Pipeline halted` message is printed explaining which step caused the halt
+- The developer fixes the flagged issues, then re-runs the pipeline
+
+This prevents downstream agents (like the tester) from generating tests for code that has known critical defects.
+
+---
+
+### Included pipelines
+
+Three pipelines ship with the extension in `.aem-library/pipelines/`.
+
+#### new-component-pipeline
+
+**Run:** `@aem /run-pipeline name=new-component-pipeline`
+
+The most commonly used pipeline. Builds a complete AEM component from scratch, reviews it, and produces tests.
+
+| Step | Agent | Halts on critical? |
+|---|---|---|
+| Build Component | `aem-component-builder` | No |
+| Code Review | `aem-code-reviewer` | **Yes** |
+| Generate Tests & QA Checklist | `aem-tester` | No |
+
+Example:
+```
+@aem /run-pipeline name=new-component-pipeline name=hero site=my-brand group="My Brand - Content"
+```
+
+---
+
+#### new-template-pipeline
+
+**Run:** `@aem /run-pipeline name=new-template-pipeline`
+
+Builds an editable template and immediately reviews it for correctness.
+
+| Step | Agent | Halts on critical? |
+|---|---|---|
+| Build Template | `aem-template-builder` | No |
+| Code Review | `aem-code-reviewer` | **Yes** |
+
+Example:
+```
+@aem /run-pipeline name=new-template-pipeline name=content-page site=my-brand
+```
+
+---
+
+#### code-audit-pipeline
+
+**Run:** `@aem /run-pipeline name=code-audit-pipeline`
+
+Runs a three-agent audit on existing code. Paste the code you want audited in the same message, or reference a file.
+
+| Step | Agent | Halts on critical? |
+|---|---|---|
+| Component Review | `component-reviewer` | No |
+| Accessibility Audit | `accessibility-auditor` | No |
+| Migration Analysis | `migration-helper` | No |
+
+Example:
+```
+@aem /run-pipeline name=code-audit-pipeline
+...paste component HTL here...
+```
+
+---
+
 ## Included Skills
 
 The following skills ship with the extension in `.aem-library/skills/`.
@@ -720,6 +957,56 @@ Designs a best-practice ClientLib structure with:
 ## Included Agents
 
 The following agents ship with the extension in `.aem-library/agents/`.
+
+### Pipeline agents
+
+Four agents are purpose-built for pipeline use. They can also be invoked individually via `/use-skill`.
+
+#### aem-component-builder
+
+**Invoke:** `@aem /use-skill name=aem-component-builder`
+**Used by:** `new-component-pipeline` (Step 1)
+
+Generates a complete AEM 6.5 component matched to the detected workspace: `.content.xml`, HTL, Sling model (with interface + implementation), and Granite UI dialog. Derives site name, Java package, naming conventions, and component group from the scan — no parameters needed if the workspace is already set up.
+
+**Output:** component node → HTL with BEM and XSS guards → Sling model with `@ValueMapValue` and `@PostConstruct` → dialog with Coral 3 fields → registration checklist
+
+---
+
+#### aem-template-builder
+
+**Invoke:** `@aem /use-skill name=aem-template-builder`
+**Used by:** `new-template-pipeline` (Step 1)
+
+Generates a complete AEM 6.5 editable template with all four required nodes, scoped to the detected site. Validates `allowedPaths` scope, replicates the child-node set of existing templates, and matches detected XML indentation.
+
+**Output:** root `.content.xml` → `structure` node → `policies` node → `initial` node → enable steps
+
+---
+
+#### aem-code-reviewer
+
+**Invoke:** `@aem /use-skill name=aem-code-reviewer`
+**Used by:** `new-component-pipeline` (Step 2), `new-template-pipeline` (Step 2)
+
+Reviews code from the previous pipeline step against a structured AEM 6.5 checklist. Produces a three-tier verdict: `✅ PASSED`, `⚠️ PASSED WITH WARNINGS`, or `🛑 CRITICAL ISSUES FOUND`. The last verdict halts the pipeline when `haltOnIssues: true` is set on the step.
+
+**Checklist covers:** component node, HTL (XSS, logic-free, null guards), Sling model (annotations, no session calls, interface pattern), dialog (Coral 3 only, field name matching), template nodes (allowedPaths scope, four-node presence)
+
+**Output:** verdict → findings table (CRITICAL / WARNING / INFO) → corrected code for critical findings → positive notes
+
+---
+
+#### aem-tester
+
+**Invoke:** `@aem /use-skill name=aem-tester`
+**Used by:** `new-component-pipeline` (Step 3)
+
+Reads the Sling Model generated in previous pipeline steps and produces a compilable JUnit 5 test class using the AEM Mocks framework (`io.wcm.testing.mock.aem`). Also produces a structured manual author QA checklist with one checkbox per dialog field, plus rendering and accessibility checks.
+
+**Output:** full JUnit 5 test class → `mvn test` command → author QA checklist (dialog, rendering, responsive, accessibility)
+
+---
 
 ### component-reviewer
 
@@ -828,7 +1115,7 @@ Pre-deployment checklist covering:
 
 ---
 
-## Adding your own Skills, Agents, and Guides
+## Adding your own Skills, Agents, Guides, and Pipelines
 
 ### Adding a skill
 
@@ -845,6 +1132,30 @@ Pre-deployment checklist covering:
 3. Structure `instructions` as: persona → trigger → checklist/rubric → output format
 4. Run `@aem /list-skills` to confirm it appears
 5. Test with `@aem /use-skill name=your-agent-name`
+
+### Adding a pipeline
+
+**Option 1 — Wizard**
+
+```
+@aem /build-pipeline
+```
+
+Follow the prompts to name the pipeline, describe it, and add steps. Each step asks for the agent/skill name, a label, and whether to halt on critical issues. The file is saved automatically.
+
+**Option 2 — Write JSON directly**
+
+1. Create a `.json` file in `.aem-library/pipelines/`
+2. Fill in `name`, `description`, `topic`, `tags`, and `steps` (see [Pipeline file format](#pipeline-file-format))
+3. Save the file — the sidebar refreshes automatically
+4. Test with `@aem /run-pipeline name=your-pipeline-name`
+
+**Tips for writing effective pipelines:**
+
+- Put the most destructive or expensive step first — the reviewer gets more context as it accumulates
+- Use `haltOnIssues: true` only on review/validation steps, not builders or testers
+- Keep step labels short — they appear as headers in the chat output
+- The `agent` field must match the `name` property in the agent's JSON file exactly
 
 ### Sharing with the team
 
@@ -875,5 +1186,7 @@ All parameters use `key=value` syntax. Multi-word values must be quoted: `title=
 | `/list-skills` | _(no parameters)_ |
 | `/use-skill` | `name` (optional — omit to open picker) + any additional context parameters |
 | `/init-copilot` | _(no parameters — derives everything from the workspace scan)_ |
+| `/run-pipeline` | `name` (optional — omit to open picker) + any `key=value` parameters forwarded to all steps |
+| `/build-pipeline` | _(no parameters — opens the interactive wizard)_ |
 
 All parameters are optional when their values can be inferred from the workspace scan. The extension will state what it detected and flag any assumptions it made.

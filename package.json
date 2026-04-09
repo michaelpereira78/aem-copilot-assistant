@@ -43,6 +43,18 @@
     },
     "commands": [
       {
+        "command": "aem-copilot.newPipeline",
+        "title": "New Pipeline…",
+        "icon": "$(add)",
+        "category": "AEM Library"
+      },
+      {
+        "command": "aem-copilot.runPipelineByName",
+        "title": "Run Pipeline",
+        "icon": "$(circuit-board)",
+        "category": "AEM Library"
+      },
+      {
         "command": "aem-copilot.generateCopilotInstructions",
         "title": "Generate Copilot Instructions",
         "icon": "$(sparkle)",
@@ -151,6 +163,11 @@
       ],
       "view/item/context": [
         {
+          "command": "aem-copilot.newPipeline",
+          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryCategory",
+          "group": "1_create@0"
+        },
+        {
           "command": "aem-copilot.newSkill",
           "when": "view == aem-copilot.libraryView && viewItem == aemLibraryCategory",
           "group": "1_create@1"
@@ -166,6 +183,21 @@
           "group": "1_create@3"
         },
         {
+          "command": "aem-copilot.runPipelineByName",
+          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryPipeline",
+          "group": "inline@1"
+        },
+        {
+          "command": "aem-copilot.editEntry",
+          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryPipeline",
+          "group": "inline@2"
+        },
+        {
+          "command": "aem-copilot.deleteEntry",
+          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryPipeline",
+          "group": "inline@3"
+        },
+        {
           "command": "aem-copilot.editEntry",
           "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
           "group": "inline@1"
@@ -177,12 +209,12 @@
         },
         {
           "command": "aem-copilot.renameEntry",
-          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide|Pipeline)$/",
           "group": "2_edit@1"
         },
         {
           "command": "aem-copilot.duplicateEntry",
-          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide|Pipeline)$/",
           "group": "2_edit@2"
         }
       ]
@@ -246,6 +278,14 @@
           {
             "name": "init-copilot",
             "description": "Generate or sync .github/copilot-instructions.md from a live workspace scan. Creates the file on first run; on subsequent runs it refreshes only the auto-generated section, preserving your custom rules."
+          },
+          {
+            "name": "run-pipeline",
+            "description": "Run an agent pipeline — chains multiple agents in sequence, each receiving the previous step's full output as context. Run with no arguments to pick from a list, or pass name=pipeline-name to run directly."
+          },
+          {
+            "name": "build-pipeline",
+            "description": "Open a step-by-step wizard to compose a new agent pipeline. Prompts for a name, description, and which agents or skills to run at each step, then saves it to .aem-library/pipelines/."
           }
         ]
       }
