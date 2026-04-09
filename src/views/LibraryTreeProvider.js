@@ -9,7 +9,6 @@ const CTX_CATEGORY  = 'aemLibraryCategory';
 const CTX_SKILL     = 'aemLibrarySkill';
 const CTX_AGENT     = 'aemLibraryAgent';
 const CTX_GUIDE     = 'aemLibraryGuide';
-const CTX_PIPELINE  = 'aemLibraryPipeline';
 const CTX_EMPTY     = 'aemLibraryEmpty';
 
 // ─── Item classes ─────────────────────────────────────────────────────────────
@@ -20,7 +19,7 @@ class CategoryItem extends vscode.TreeItem {
     this.type        = type;
     this.contextValue = CTX_CATEGORY;
 
-    const icons = { skills: 'symbol-method', agents: 'robot', guides: 'book', pipelines: 'circuit-board' };
+    const icons = { skills: 'symbol-method', agents: 'robot', guides: 'book' };
     this.iconPath = new vscode.ThemeIcon(icons[type] || 'folder');
   }
 }
@@ -36,25 +35,13 @@ class EntryItem extends vscode.TreeItem {
         entry.tags && entry.tags.length ? `\n\n*Tags:* ${entry.tags.join(', ')}` : ''
       }${
         type === 'agents' ? `\n\n*Model:* ${entry.model || 'claude-sonnet-4-6'}` : ''
-      }${
-        type === 'pipelines' && entry.steps
-          ? `\n\n*Steps (${entry.steps.length}):* ${entry.steps.map(s => s.label).join(' → ')}`
-          : ''
       }`
     );
-    this.contextValue = type === 'skills'    ? CTX_SKILL
-                      : type === 'agents'    ? CTX_AGENT
-                      : type === 'pipelines' ? CTX_PIPELINE
+    this.contextValue = type === 'skills' ? CTX_SKILL
+                      : type === 'agents' ? CTX_AGENT
                       : CTX_GUIDE;
 
-    // Pipelines: click → run pipeline; others: click → open file
-    if (type === 'pipelines') {
-      this.command = {
-        command: 'aem-copilot.runPipelineByName',
-        title: 'Run pipeline',
-        arguments: [entry.name]
-      };
-    } else if (entry.path) {
+    if (entry.path) {
       this.command = {
         command: 'vscode.open',
         title: 'Open file',
@@ -62,7 +49,7 @@ class EntryItem extends vscode.TreeItem {
       };
     }
 
-    const icons = { skills: 'symbol-method', agents: 'robot', guides: 'book', pipelines: 'circuit-board' };
+    const icons = { skills: 'symbol-method', agents: 'robot', guides: 'book' };
     this.iconPath = new vscode.ThemeIcon(icons[type] || 'file');
 
     // Badge the source so developers know local vs shared
@@ -132,12 +119,10 @@ class LibraryTreeProvider {
     const lib = await this._loadLibrary();
 
     const isEmpty =
-      lib.skills.length    === 0 &&
-      lib.agents.length    === 0 &&
-      lib.guides.length    === 0 &&
-      lib.pipelines.length === 0;
+      lib.skills.length === 0 &&
+      lib.agents.length === 0 &&
+      lib.guides.length === 0;
 
-    // Show a placeholder when the library is completely empty
     if (isEmpty) {
       return [
         new EmptyItem('No library found — click + to create your first entry'),
@@ -149,11 +134,9 @@ class LibraryTreeProvider {
     const expanded  = vscode.TreeItemCollapsibleState.Expanded;
 
     return [
-      new CategoryItem('Pipelines', 'pipelines', lib.pipelines.length,
-        lib.pipelines.length > 0 ? expanded : collapsed),
-      new CategoryItem('Skills',    'skills',    lib.skills.length),
-      new CategoryItem('Agents',    'agents',    lib.agents.length),
-      new CategoryItem('Guides',    'guides',    lib.guides.length,
+      new CategoryItem('Skills', 'skills', lib.skills.length),
+      new CategoryItem('Agents', 'agents', lib.agents.length),
+      new CategoryItem('Guides', 'guides', lib.guides.length,
         lib.guides.length > 0 ? expanded : collapsed)
     ];
   }
@@ -163,11 +146,8 @@ class LibraryTreeProvider {
     const entries = lib[type] || [];
 
     if (entries.length === 0) {
-      const typeLabel = type.slice(0, -1); // 'pipelines' → 'pipeline', 'skills' → 'skill'
-      const hint = type === 'pipelines'
-        ? `No pipelines yet — use @aem /build-pipeline to create one`
-        : `No ${typeLabel}s yet — click + to create one`;
-      return [new EmptyItem(hint)];
+      const typeLabel = type.slice(0, -1); // 'skills' → 'skill'
+      return [new EmptyItem(`No ${typeLabel}s yet — click + to create one`)];
     }
 
     return entries.map(entry => new EntryItem(entry, type));

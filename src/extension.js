@@ -6,6 +6,7 @@ const { WorkspaceScanner } = require('./scanner/WorkspaceScanner');
 const { ContextBuilder } = require('./scanner/ContextBuilder');
 const { LibraryScanner } = require('./scanner/LibraryScanner');
 const { LibraryTreeProvider } = require('./views/LibraryTreeProvider');
+const { PipelinesTreeProvider, PipelineItem } = require('./views/PipelinesTreeProvider');
 const LibraryCommands = require('./views/LibraryCommands');
 const { CopilotInstructionsManager } = require('./commands/CopilotInstructionsManager');
 const { CopilotInstructionsView }    = require('./views/CopilotInstructionsView');
@@ -446,21 +447,129 @@ function activate(context) {
     })
   );
 
+  // ── Pipelines sidebar view ───────────────────────────────────────────────────
+  const pipelinesProvider = new PipelinesTreeProvider();
+
+  context.subscriptions.push(
+    vscode.window.createTreeView('aem-copilot.pipelinesView', {
+      treeDataProvider: pipelinesProvider,
+      showCollapseAll:  true,
+      canSelectMany:    false
+    })
+  );
+
   // ── Pipeline commands ─────────────────────────────────────────────────────────
   context.subscriptions.push(
-    // Triggered by clicking a pipeline item in the sidebar
-    vscode.commands.registerCommand('aem-copilot.runPipelineByName', async (pipelineName) => {
-      await vscode.commands.executeCommand('workbench.action.chat.open');
-      // Insert the /run-pipeline command into Copilot Chat via clipboard trick
-      await vscode.env.clipboard.writeText(`@aem /run-pipeline name=${pipelineName}`);
-      await vscode.window.showInformationMessage(
-        `Paste into Copilot Chat to run: @aem /run-pipeline name=${pipelineName}`,
-        'Copy command'
-      );
+    vscode.commands.registerCommand('aem-copilot.refreshPipelines', () => {
+      pipelinesProvider.refresh();
     }),
 
     vscode.commands.registerCommand('aem-copilot.newPipeline', async () => {
-      await LibraryCommands.createPipeline(treeProvider);
+      await LibraryCommands.createPipeline(pipelinesProvider);
+    }),
+
+    // Run — copies command to clipboard and opens Copilot Chat
+    vscode.commands.registerCommand('aem-copilot.runPipelineByName', async (pipelineName) => {
+      const cmd = `@aem /run-pipeline name=${pipelineName}`;
+      await vscode.env.clipboard.writeText(cmd);
+      const choice = await vscode.window.showInformationMessage(
+        `Command copied — paste into Copilot Chat to run pipeline "${pipelineName}".`,
+        'Open Copilot Chat'
+      );
+      if (choice === 'Open Copilot Chat') {
+        await vscode.commands.executeCommand('workbench.action.chat.open');
+      }
+    }),
+
+    // Edit — open the pipeline JSON file in the editor
+    vscode.commands.registerCommand('aem-copilot.editPipeline', async (item) => {
+      if (item instanceof PipelineItem && item.pipeline.path) {
+        const doc = await vscode.workspace.openTextDocument(
+          vscode.Uri.file(item.pipeline.path)
+        );
+        await vscode.window.showTextDocument(doc);
+      }
+    }),
+
+    // Duplicate — copy the JSON with a new name
+    vscode.commands.registerCommand('aem-copilot.duplicatePipeline', async (item) => {
+      if (!(item instanceof PipelineItem)) return;
+      const pipeline = item.pipeline;
+      const newName  = await vscode.window.showInputBox({
+        title:        'Duplicate pipeline — new name',
+        value:        `${pipeline.name}-copy`,
+        validateInput(v) {
+          if (!v || !v.trim()) return 'Name is required';
+          if (/\s/.test(v))    return 'No spaces — use kebab-case';
+          return null;
+        }
+      });
+      if (!newName) return;
+
+      const dir     = require('path').dirname(pipeline.path);
+      const newPath = require('path').join(dir, `${newName}.json`);
+      const bytes   = await vscode.workspace.fs.readFile(vscode.Uri.file(pipeline.path));
+      let content   = Buffer.from(bytes).toString('utf8');
+      try {
+        const parsed = JSON.parse(content);
+        parsed.name  = newName;
+        content      = JSON.stringify(parsed, null, 2);
+      } catch (_) {}
+
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(newPath), Buffer.from(content, 'utf8'));
+      pipelinesProvider.refresh();
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(newPath));
+      await vscode.window.showTextDocument(doc);
+      vscode.window.showInformationMessage(`Pipeline duplicated: ${newName}`);
+    }),
+
+    // Rename — update name field + rename file
+    vscode.commands.registerCommand('aem-copilot.renamePipeline', async (item) => {
+      if (!(item instanceof PipelineItem)) return;
+      const pipeline = item.pipeline;
+      const oldName  = pipeline.name;
+      const newName  = await vscode.window.showInputBox({
+        title: 'Rename pipeline',
+        value: oldName,
+        validateInput(v) {
+          if (!v || !v.trim()) return 'Name is required';
+          if (/\s/.test(v))    return 'No spaces — use kebab-case';
+          if (v === oldName)   return 'Name is unchanged';
+          return null;
+        }
+      });
+      if (!newName) return;
+
+      const oldPath = pipeline.path;
+      const dir     = require('path').dirname(oldPath);
+      const newPath = require('path').join(dir, `${newName}.json`);
+      const bytes   = await vscode.workspace.fs.readFile(vscode.Uri.file(oldPath));
+      let content   = Buffer.from(bytes).toString('utf8');
+      try {
+        const parsed = JSON.parse(content);
+        parsed.name  = newName;
+        content      = JSON.stringify(parsed, null, 2);
+      } catch (_) {}
+
+      await vscode.workspace.fs.writeFile(vscode.Uri.file(newPath), Buffer.from(content, 'utf8'));
+      await vscode.workspace.fs.delete(vscode.Uri.file(oldPath));
+      pipelinesProvider.refresh();
+      vscode.window.showInformationMessage(`Pipeline renamed to: ${newName}`);
+    }),
+
+    // Delete — with confirmation
+    vscode.commands.registerCommand('aem-copilot.deletePipeline', async (item) => {
+      if (!(item instanceof PipelineItem)) return;
+      const pipeline = item.pipeline;
+      const confirm  = await vscode.window.showWarningMessage(
+        `Delete pipeline "${pipeline.name}"? This cannot be undone.`,
+        { modal: true },
+        'Delete'
+      );
+      if (confirm !== 'Delete') return;
+      await vscode.workspace.fs.delete(vscode.Uri.file(pipeline.path));
+      pipelinesProvider.refresh();
+      vscode.window.showInformationMessage(`Deleted: ${pipeline.name}`);
     })
   );
 

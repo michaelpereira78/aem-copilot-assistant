@@ -34,6 +34,12 @@
           "contextualTitle": "AEM Copilot — Copilot Instructions"
         },
         {
+          "id": "aem-copilot.pipelinesView",
+          "name": "Pipelines",
+          "icon": "icon-sidebar.svg",
+          "contextualTitle": "AEM Copilot — Pipelines"
+        },
+        {
           "id": "aem-copilot.libraryView",
           "name": "Team Library",
           "icon": "icon-sidebar.svg",
@@ -46,13 +52,43 @@
         "command": "aem-copilot.newPipeline",
         "title": "New Pipeline…",
         "icon": "$(add)",
-        "category": "AEM Library"
+        "category": "AEM Pipelines"
+      },
+      {
+        "command": "aem-copilot.refreshPipelines",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "AEM Pipelines"
       },
       {
         "command": "aem-copilot.runPipelineByName",
         "title": "Run Pipeline",
-        "icon": "$(circuit-board)",
-        "category": "AEM Library"
+        "icon": "$(play)",
+        "category": "AEM Pipelines"
+      },
+      {
+        "command": "aem-copilot.editPipeline",
+        "title": "Edit",
+        "icon": "$(edit)",
+        "category": "AEM Pipelines"
+      },
+      {
+        "command": "aem-copilot.renamePipeline",
+        "title": "Rename",
+        "icon": "$(whole-word)",
+        "category": "AEM Pipelines"
+      },
+      {
+        "command": "aem-copilot.duplicatePipeline",
+        "title": "Duplicate",
+        "icon": "$(copy)",
+        "category": "AEM Pipelines"
+      },
+      {
+        "command": "aem-copilot.deletePipeline",
+        "title": "Delete",
+        "icon": "$(trash)",
+        "category": "AEM Pipelines"
       },
       {
         "command": "aem-copilot.generateCopilotInstructions",
@@ -151,6 +187,16 @@
           "group": "navigation@3"
         },
         {
+          "command": "aem-copilot.newPipeline",
+          "when": "view == aem-copilot.pipelinesView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "aem-copilot.refreshPipelines",
+          "when": "view == aem-copilot.pipelinesView",
+          "group": "navigation@2"
+        },
+        {
           "command": "aem-copilot.newEntry",
           "when": "view == aem-copilot.libraryView",
           "group": "navigation@1"
@@ -163,9 +209,29 @@
       ],
       "view/item/context": [
         {
-          "command": "aem-copilot.newPipeline",
-          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryCategory",
-          "group": "1_create@0"
+          "command": "aem-copilot.runPipelineByName",
+          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "group": "inline@1"
+        },
+        {
+          "command": "aem-copilot.editPipeline",
+          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "group": "inline@2"
+        },
+        {
+          "command": "aem-copilot.deletePipeline",
+          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "group": "inline@3"
+        },
+        {
+          "command": "aem-copilot.renamePipeline",
+          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "group": "2_edit@1"
+        },
+        {
+          "command": "aem-copilot.duplicatePipeline",
+          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "group": "2_edit@2"
         },
         {
           "command": "aem-copilot.newSkill",
@@ -183,21 +249,6 @@
           "group": "1_create@3"
         },
         {
-          "command": "aem-copilot.runPipelineByName",
-          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryPipeline",
-          "group": "inline@1"
-        },
-        {
-          "command": "aem-copilot.editEntry",
-          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryPipeline",
-          "group": "inline@2"
-        },
-        {
-          "command": "aem-copilot.deleteEntry",
-          "when": "view == aem-copilot.libraryView && viewItem == aemLibraryPipeline",
-          "group": "inline@3"
-        },
-        {
           "command": "aem-copilot.editEntry",
           "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
           "group": "inline@1"
@@ -209,12 +260,12 @@
         },
         {
           "command": "aem-copilot.renameEntry",
-          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide|Pipeline)$/",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
           "group": "2_edit@1"
         },
         {
           "command": "aem-copilot.duplicateEntry",
-          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide|Pipeline)$/",
+          "when": "view == aem-copilot.libraryView && viewItem =~ /^aemLibrary(Skill|Agent|Guide)$/",
           "group": "2_edit@2"
         }
       ]

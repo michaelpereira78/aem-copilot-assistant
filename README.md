@@ -39,6 +39,7 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [/use-skill](#use-skill)
 - [Agent Pipelines](#agent-pipelines)
   - [How pipelines work](#how-pipelines-work)
+  - [Pipelines sidebar](#pipelines-sidebar)
   - [Running a pipeline](#running-a-pipeline)
   - [Building a pipeline](#building-a-pipeline)
   - [Pipeline file format](#pipeline-file-format)
@@ -744,6 +745,53 @@ All three steps stream their output live to the chat window, separated by step h
 
 ---
 
+### Pipelines sidebar
+
+Pipelines have their own dedicated panel in the AEM Library activity bar, separate from Skills, Agents, and Guides. Open the sidebar and look for the **Pipelines** section.
+
+**What the panel shows:**
+
+Each pipeline is listed as a collapsible item. Expand it to see every step in order — including the step number, label, agent/skill name, and a `⚠️` indicator if the step is configured to halt on critical issues.
+
+```
+▾ new-component-pipeline         3 steps
+    1. Build                      aem-component-builder
+    2. Code Review          ⚠️    aem-code-reviewer
+    3. Generate Tests             aem-tester
+
+▾ new-template-pipeline          2 steps
+    1. Build Template             aem-template-builder
+    2. Code Review          ⚠️    aem-code-reviewer
+```
+
+**Toolbar buttons** (top-right of the Pipelines panel):
+
+| Button | Action |
+|---|---|
+| `$(add)` New Pipeline | Opens the step-by-step wizard to create and save a new pipeline |
+| `$(refresh)` Refresh | Re-scans `.aem-library/pipelines/` and reloads the list |
+
+**Inline item actions** (hover over a pipeline row):
+
+| Button | Action |
+|---|---|
+| `$(play)` Run | Copies `@aem /run-pipeline name=x` to the clipboard and offers to open Copilot Chat |
+| `$(edit)` Edit | Opens the pipeline's `.json` file in the editor |
+| `$(trash)` Delete | Deletes the file after confirmation |
+
+**Right-click context menu** (on any pipeline):
+
+| Action | What it does |
+|---|---|
+| Rename | Prompts for a new name, updates the `name` field in the file, and renames the file |
+| Duplicate | Copies the pipeline with a new name and opens the copy in the editor |
+
+**Empty state:** When no pipelines exist the panel shows a hint to run `@aem /build-pipeline` or manually add files to `.aem-library/pipelines/`.
+
+**Auto-refresh:** The panel updates automatically whenever a file inside `.aem-library/pipelines/` is saved, so changes from a text editor or a `git pull` appear immediately without a manual refresh.
+
+---
+
 ### Running a pipeline
 
 **Option 1 — Searchable picker**
@@ -770,7 +818,7 @@ Pass any `key=value` parameters after the pipeline name. They are forwarded to e
 
 **Option 4 — Sidebar click**
 
-Click any pipeline in the **AEM Library** sidebar (the `$(circuit-board)` Pipelines category). VS Code copies the run command to your clipboard, ready to paste into Copilot Chat.
+Hover over any pipeline in the **Pipelines** sidebar panel and click the `$(play)` Run button. VS Code copies `@aem /run-pipeline name=x` to your clipboard and offers to open Copilot Chat. Paste and press Enter to start the run.
 
 ---
 
@@ -791,7 +839,7 @@ A step-by-step Quick Pick wizard opens in VS Code:
 
 **Option 2 — Write JSON directly**
 
-Create a `.json` file in `.aem-library/pipelines/` using the format described below. The sidebar refreshes automatically when the file is saved.
+Create a `.json` file in `.aem-library/pipelines/` using the format described below. The **Pipelines** sidebar panel refreshes automatically when the file is saved.
 
 ---
 
