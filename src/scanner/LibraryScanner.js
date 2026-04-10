@@ -82,7 +82,7 @@ class LibraryScanner {
 
     const [skills, agents, guides, pipelines] = await Promise.all([
       LibraryScanner._readMarkdownDir(skillsPath, source),
-      LibraryScanner._readJsonDir(agentsPath, source),
+      LibraryScanner._readAgentsDir(agentsPath, source),
       LibraryScanner._readMarkdownDir(guidesPath, source),
       LibraryScanner._readPipelinesDir(pipelinesPath, source)
     ]);
@@ -127,30 +127,65 @@ class LibraryScanner {
     return items;
   }
 
-  static async _readJsonDir(dirPath, source) {
+  /**
+   * Reads agents from a directory — supports both:
+   *   - New:    *.md  with YAML frontmatter (name, description, topic, tags, model, tools)
+   *             and the file body as the instructions (human-readable, easy to edit)
+   *   - Legacy: *.json  with { name, description, topic, tags, model, tools, instructions }
+   * On a name collision within the same location, .md wins over .json.
+   */
+  static async _readAgentsDir(dirPath, source) {
     const entries = await LibraryScanner._listDir(dirPath);
-    const jsonFiles = entries.filter(([name]) => name.endsWith('.json'));
     const items = [];
+    const seenNames = new Map(); // name → index in items (md wins over json)
 
-    for (const [filename] of jsonFiles) {
+    // Process .md first so they take precedence
+    const mdFiles   = entries.filter(([n]) => n.endsWith('.md'));
+    const jsonFiles = entries.filter(([n]) => n.endsWith('.json'));
+
+    for (const [filename] of [...mdFiles, ...jsonFiles]) {
       try {
         const fullPath = path.join(dirPath, filename);
-        const uri = vscode.Uri.file(fullPath);
-        const raw = await LibraryScanner._readFile(uri);
+        const uri      = vscode.Uri.file(fullPath);
+        const raw      = await LibraryScanner._readFile(uri);
         if (!raw) continue;
 
-        const parsed = JSON.parse(raw);
-        items.push({
-          name:         parsed.name || path.basename(filename, '.json'),
-          description:  parsed.description || '',
-          topic:        parsed.topic || 'general',
-          tags:         LibraryScanner._parseTags(parsed.tags),
-          model:        parsed.model || 'claude-sonnet-4-6',
-          instructions: parsed.instructions || '',
-          tools:        parsed.tools || [],
-          path: fullPath,
-          source
-        });
+        let item;
+
+        if (filename.endsWith('.md')) {
+          const { frontmatter, body } = LibraryScanner._parseFrontmatter(raw);
+          item = {
+            name:         frontmatter.name || path.basename(filename, '.md'),
+            description:  frontmatter.description || '',
+            topic:        frontmatter.topic || 'general',
+            tags:         LibraryScanner._parseTags(frontmatter.tags),
+            model:        frontmatter.model || 'claude-sonnet-4-6',
+            instructions: body,
+            tools:        LibraryScanner._parseTags(frontmatter.tools),
+            path: fullPath,
+            source
+          };
+        } else {
+          // Legacy .json format
+          const parsed = JSON.parse(raw);
+          item = {
+            name:         parsed.name || path.basename(filename, '.json'),
+            description:  parsed.description || '',
+            topic:        parsed.topic || 'general',
+            tags:         LibraryScanner._parseTags(parsed.tags),
+            model:        parsed.model || 'claude-sonnet-4-6',
+            instructions: parsed.instructions || '',
+            tools:        parsed.tools || [],
+            path: fullPath,
+            source
+          };
+        }
+
+        // .md wins over .json for the same name — skip json if md already registered
+        if (seenNames.has(item.name) && filename.endsWith('.json')) continue;
+
+        seenNames.set(item.name, items.length);
+        items.push(item);
       } catch (_) {}
     }
 

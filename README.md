@@ -517,11 +517,11 @@ The team library lets you store reusable **Skills**, **Agents**, and **Guides** 
 │   ├── new-hero-component.md
 │   ├── editable-template-setup.md
 │   └── clientlib-organization.md
-├── agents/          ← Claude agent definitions (JSON)
-│   ├── component-reviewer.json
-│   ├── migration-helper.json
-│   ├── accessibility-auditor.json
-│   └── htl-refactor.json
+├── agents/          ← Claude agent definitions (Markdown)
+│   ├── component-reviewer.md
+│   ├── migration-helper.md
+│   ├── accessibility-auditor.md
+│   └── htl-refactor.md
 └── guides/          ← Reference documentation and checklists
     ├── component-patterns.md
     └── deployment-checklist.md
@@ -566,40 +566,62 @@ Include:
 
 ### Agent file format
 
-Agents are `.json` files that define a Claude persona with specific expertise and a structured output format.
+Agents are `.md` files with YAML frontmatter followed by the agent's instructions as readable markdown — the same format used by skills and guides. This makes agents easy to read, edit, and copy in the editor.
 
-```json
-{
-  "name": "my-agent-name",
-  "description": "One-line description shown in /list-skills",
-  "topic": "review",
-  "tags": ["review", "quality"],
-  "model": "claude-sonnet-4-6",
-  "tools": ["Read", "Grep", "Glob"],
-  "instructions": "You are a [role]...\n\nWhen invoked, [what the agent does]...\n\nOUTPUT FORMAT:\n..."
-}
+```markdown
+---
+name: my-agent-name
+description: One-line description shown in /list-skills
+topic: review
+tags: [review, quality]
+model: claude-sonnet-4-6
+tools: [Read, Grep, Glob]
+---
+
+You are a [role] specialising in [domain].
+
+When invoked, [what the agent does and what input it expects].
+
+## Checklist
+
+- [ ] Item 1
+- [ ] Item 2
+
+## Output format
+
+### Summary
+
+One-sentence verdict.
+
+### Findings
+
+| Severity | Finding | Fix |
+|----------|---------|-----|
 ```
 
-**Fields**
+**Frontmatter fields**
 
 | Field | Required | Description |
 |---|---|---|
 | `name` | Yes | Unique identifier used in `/use-skill name=x` |
 | `description` | Yes | One-liner shown in the `/list-skills` catalog |
 | `topic` | No | Groups the agent in the catalog |
-| `tags` | No | Array for filtering |
+| `tags` | No | Array or comma-separated list for filtering |
 | `model` | No | Claude model ID — defaults to `claude-sonnet-4-6` |
 | `tools` | No | List of tools the agent is designed to use (informational) |
-| `instructions` | Yes | Full system prompt for the agent — write this as a detailed persona + output format spec |
+
+The file body (everything after the closing `---`) is the agent's full system prompt. There is no `instructions` key — just write the prompt directly as markdown.
 
 **Writing good agent instructions**
 
-A well-written agent `instructions` field has four parts:
+A well-written agent body has four parts:
 
 1. **Persona** — who the agent is and what expertise it has
 2. **Trigger** — what the agent does when invoked and what input it expects
 3. **Checklist or rubric** — the structured criteria it applies
 4. **Output format** — the exact structure of the response, with section headers and severity levels
+
+> **Legacy `.json` agents are still supported.** If your team has existing `.json` agent files they will continue to load. Migrate them to `.md` at your own pace — if both formats exist for the same agent name, the `.md` file takes precedence.
 
 ---
 
@@ -1175,10 +1197,10 @@ Pre-deployment checklist covering:
 
 ### Adding an agent
 
-1. Create a `.json` file in `.aem-library/agents/`
-2. Fill in `name`, `description`, `topic`, `tags`, `model`, and `instructions`
-3. Structure `instructions` as: persona → trigger → checklist/rubric → output format
-4. Run `@aem /list-skills` to confirm it appears
+1. Click the `+` button in the Team Library sidebar and choose **New Agent**, or create a `.md` file manually in `.aem-library/agents/`
+2. Add YAML frontmatter with `name`, `description`, `topic`, `tags`, `model`, and `tools`
+3. Write the agent body — persona → trigger → checklist/rubric → output format
+4. Run `@aem /list-skills` to confirm it appears in the catalog
 5. Test with `@aem /use-skill name=your-agent-name`
 
 ### Adding a pipeline

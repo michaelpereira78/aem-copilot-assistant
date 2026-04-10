@@ -35,19 +35,40 @@ Define what the output must contain.
 }
 
 function agentTemplate(name) {
-  return JSON.stringify(
-    {
-      name,
-      description: 'Brief one-line description of what this agent does',
-      topic: 'review',
-      tags: ['review'],
-      model: 'claude-sonnet-4-6',
-      tools: ['Read', 'Grep', 'Glob'],
-      instructions: `You are an AEM 6.5 expert specialising in [domain].\n\nWhen invoked, [describe what the agent does and what input it expects].\n\nCHECKLIST:\n- [ ] Item 1\n- [ ] Item 2\n\nOUTPUT FORMAT:\n\n## Summary\nOne-sentence verdict.\n\n## Findings\nTable: Severity | Finding | Fix\n\n## Corrected code\nFenced blocks for issue-level findings only.`
-    },
-    null,
-    2
-  );
+  return `---
+name: ${name}
+description: Brief one-line description of what this agent does
+topic: review
+tags: [review]
+model: claude-sonnet-4-6
+tools: [Read, Grep, Glob]
+---
+
+You are an AEM 6.5 expert specialising in [domain].
+
+When invoked, [describe what the agent does and what input it expects].
+
+## Checklist
+
+- [ ] Item 1
+- [ ] Item 2
+
+## Output format
+
+### Summary
+
+One-sentence verdict.
+
+### Findings
+
+| Severity | Finding | Fix |
+|----------|---------|-----|
+| High     | ...     | ... |
+
+### Corrected code
+
+Fenced blocks for issue-level findings only.
+`;
 }
 
 function pipelineTemplate(name, steps) {
@@ -223,7 +244,7 @@ async function createEntry(type, provider) {
   if (type === 'pipelines') return createPipeline(provider);
 
   const typeLabel = type.slice(0, -1); // 'skills' → 'skill'
-  const ext = type === 'agents' ? '.json' : '.md';
+  const ext = '.md'; // agents, skills, and guides all use markdown
 
   const name = await vscode.window.showInputBox({
     title: `New ${typeLabel}`,
