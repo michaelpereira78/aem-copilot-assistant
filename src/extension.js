@@ -81,6 +81,177 @@ async function streamResponse(contextBlock, systemPrompt, userMessage, stream, t
 }
 
 /**
+ * Like streamResponse, but also captures and returns the full response text.
+ */
+async function streamAndCapture(contextBlock, systemPrompt, userMessage, stream, token) {
+  const [model] = await vscode.lm.selectChatModels({
+    vendor: 'copilot',
+    family: 'gpt-4o'
+  });
+
+  if (!model) {
+    stream.markdown(
+      '> **AEM Assistant:** No Copilot model available. Make sure GitHub Copilot Chat is installed and signed in.'
+    );
+    return '';
+  }
+
+  const fullPrompt = [contextBlock, systemPrompt].join('\n\n---\n\n');
+  const messages = [
+    vscode.LanguageModelChatMessage.User(fullPrompt + '\n\n' + userMessage)
+  ];
+
+  const response = await model.sendRequest(messages, {}, token);
+  let captured = '';
+  for await (const chunk of response.text) {
+    stream.markdown(chunk);
+    captured += chunk;
+  }
+  return captured;
+}
+
+/**
+ * Parse every  File: /jcr/path  followed by a fenced code block from the AI
+ * response text.  Returns an array of { jcrPath, content } objects.
+ *
+ * Handles both plain  File: /path  and backtick-wrapped  File: `/path`  forms.
+ * The lazy [\s\S]*? between the path line and the opening fence allows for
+ * descriptive sentences the model may emit between the two.
+ */
+function parseFilesFromResponse(text) {
+  const files = [];
+  // File: /some/path  (optional prose)  ```[lang]\n<content>\n```
+  const re = /File:\s*`?(\/[^\n`]+)`?\s*\n[\s\S]*?```(?:\w+)?\n([\s\S]*?)```/g;
+  let match;
+  while ((match = re.exec(text)) !== null) {
+    const jcrPath = match[1].trim();
+    const content = match[2];
+    if (jcrPath && content !== undefined) {
+      files.push({ jcrPath, content });
+    }
+  }
+  return files;
+}
+
+/**
+ * Convert a JCR path (e.g. /conf/mysite/settings/wcm/templates/…)
+ * to an absolute filesystem path using the roots detected by WorkspaceScanner.
+ *
+ * confRoot / appsRoot / contentRoot each point to the directory that
+ * immediately *contains* /conf, /apps, /content (i.e. jcr_root itself).
+ */
+function jcrToFsPath(jcrPath, projectCtx) {
+  const nodePath = require('path');
+  const layout   = projectCtx.projectLayout;
+
+  // Normalise to forward-slash, ensure leading slash
+  const jcr = ('/' + jcrPath.replace(/\\/g, '/')).replace('//', '/');
+
+  if (jcr.startsWith('/conf/')    && layout.confRoot)    return nodePath.join(layout.confRoot,    jcr);
+  if (jcr.startsWith('/apps/')    && layout.appsRoot)    return nodePath.join(layout.appsRoot,    jcr);
+  if (jcr.startsWith('/content/') && layout.contentRoot) return nodePath.join(layout.contentRoot, jcr);
+
+  // Fallback: derive jcr_root from templates storageRoot when conf root is missing
+  const tplRoot = projectCtx.templates && projectCtx.templates.storageRoot;
+  if (tplRoot) {
+    const confIdx = tplRoot.replace(/\\/g, '/').indexOf('/conf/');
+    if (confIdx !== -1) {
+      const jcrRoot = tplRoot.substring(0, confIdx);
+      return nodePath.join(jcrRoot, jcr);
+    }
+  }
+
+  // Last resort: workspace root / jcr_root / path
+  return nodePath.join(projectCtx.root, 'jcr_root', jcr);
+}
+
+/**
+ * Parse the AI response for File: + code-block pairs, ask the developer
+ * to confirm via a QuickPick (all files pre-selected, individual files can
+ * be deselected), then write every approved file to the workspace.
+ */
+async function writeScaffoldFiles(responseText, projectCtx, stream) {
+  const nodePath = require('path');
+  const files    = parseFilesFromResponse(responseText);
+
+  if (files.length === 0) return;
+
+  // ── Build QuickPick items (one per file, all pre-selected) ──────────────
+  const items = files.map(({ jcrPath, content }) => {
+    const fsPath  = jcrToFsPath(jcrPath, projectCtx);
+    const fileUri = vscode.Uri.file(fsPath);
+    const relPath = vscode.workspace.asRelativePath(fileUri);
+    return {
+      label:       relPath,
+      description: jcrPath,
+      picked:      true,   // pre-selected
+      jcrPath,
+      content,
+      fsPath
+    };
+  });
+
+  // ── Show confirmation picker ─────────────────────────────────────────────
+  const selected = await vscode.window.showQuickPick(items, {
+    title:              `Create ${files.length} file${files.length !== 1 ? 's' : ''} in workspace?`,
+    placeHolder:        'Uncheck any files you want to skip, then press Enter to confirm — or press Escape to cancel.',
+    canPickMany:        true,
+    matchOnDescription: true
+  });
+
+  // User pressed Escape or closed the picker
+  if (!selected) {
+    stream.markdown('\n\n---\n\n> File creation cancelled.\n');
+    return;
+  }
+
+  if (selected.length === 0) {
+    stream.markdown('\n\n---\n\n> No files selected — nothing written.\n');
+    return;
+  }
+
+  // ── Write the approved files ─────────────────────────────────────────────
+  stream.markdown('\n\n---\n\n## Files written to workspace\n\n');
+
+  let written = 0;
+  let failed  = 0;
+
+  for (const item of selected) {
+    try {
+      const fileUri = vscode.Uri.file(item.fsPath);
+      const dirUri  = vscode.Uri.file(nodePath.dirname(item.fsPath));
+
+      await vscode.workspace.fs.createDirectory(dirUri);
+      await vscode.workspace.fs.writeFile(fileUri, Buffer.from(item.content, 'utf8'));
+
+      stream.markdown(`- \`${item.label}\`\n`);
+      written++;
+    } catch (err) {
+      stream.markdown(`- ⚠️ Could not write \`${item.jcrPath}\` — ${err.message}\n`);
+      failed++;
+    }
+  }
+
+  const skipped = files.length - written - failed;
+
+  if (written > 0) {
+    stream.markdown(
+      `\n> **${written} file${written !== 1 ? 's' : ''} written** to your workspace.\n`
+    );
+  }
+  if (skipped > 0) {
+    stream.markdown(
+      `> ${skipped} file${skipped !== 1 ? 's' : ''} skipped.\n`
+    );
+  }
+  if (failed > 0) {
+    stream.markdown(
+      `> ⚠️ **${failed} file${failed !== 1 ? 's' : ''} could not be written** — check the paths above.\n`
+    );
+  }
+}
+
+/**
  * Generic context-aware command handler factory.
  *
  * On every invocation:
@@ -100,6 +271,29 @@ function makeHandler(commandKey) {
     const userMessage = buildUserMessage(request.prompt);
 
     await streamResponse(contextBlock, systemPrompt, userMessage, stream, token);
+  };
+}
+
+/**
+ * Scaffold command handler factory.
+ * Same as makeHandler but also parses the AI response for
+ * "File: /jcr/path" + fenced-code-block pairs and writes every matched
+ * file directly into the workspace.
+ */
+function makeScaffoldHandler(commandKey) {
+  return async (request, _context, stream, token) => {
+    stream.progress('Scanning workspace…');
+
+    const projectCtx   = await WorkspaceScanner.scan();
+    const contextBlock = ContextBuilder.build(projectCtx);
+    const systemPrompt = PROMPTS[commandKey];
+    const userMessage  = buildUserMessage(request.prompt);
+
+    const responseText = await streamAndCapture(contextBlock, systemPrompt, userMessage, stream, token);
+
+    if (responseText && projectCtx.available) {
+      await writeScaffoldFiles(responseText, projectCtx, stream);
+    }
   };
 }
 
@@ -638,12 +832,12 @@ const COMMAND_HANDLERS = {
   'run-pipeline':  runPipelineHandler,
   'build-pipeline': buildPipelineHandler,
   'init-copilot':  initCopilotHandler,
-  'new-site':      makeHandler('new-site'),
-  'new-template':  makeHandler('new-template'),
-  'new-theme':     makeHandler('new-theme'),
-  'new-page':      makeHandler('new-page'),
-  'new-component': makeHandler('new-component'),
-  'new-policy':    makeHandler('new-policy'),
+  'new-site':      makeScaffoldHandler('new-site'),
+  'new-template':  makeScaffoldHandler('new-template'),
+  'new-theme':     makeScaffoldHandler('new-theme'),
+  'new-page':      makeScaffoldHandler('new-page'),
+  'new-component': makeScaffoldHandler('new-component'),
+  'new-policy':    makeScaffoldHandler('new-policy'),
   'explain':       makeHandler('explain'),
   'debug':         makeHandler('debug'),
   'scan':          makeHandler('scan'),
