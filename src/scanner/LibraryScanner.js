@@ -153,7 +153,7 @@ class LibraryScanner {
         let item;
 
         if (filename.endsWith('.md')) {
-          const { frontmatter, body } = LibraryScanner._parseFrontmatter(raw);
+          const { frontmatter, rawYaml, body } = LibraryScanner._parseFrontmatter(raw);
           item = {
             name:         frontmatter.name || path.basename(filename, '.md'),
             description:  frontmatter.description || '',
@@ -162,6 +162,7 @@ class LibraryScanner {
             model:        frontmatter.model || 'claude-sonnet-4-6',
             instructions: body,
             tools:        LibraryScanner._parseTags(frontmatter.tools),
+            handoffs:     LibraryScanner._parseHandoffs(rawYaml),
             path: fullPath,
             source
           };
@@ -176,6 +177,7 @@ class LibraryScanner {
             model:        parsed.model || 'claude-sonnet-4-6',
             instructions: parsed.instructions || '',
             tools:        parsed.tools || [],
+            handoffs:     parsed.handoffs || [],
             path: fullPath,
             source
           };
@@ -211,6 +213,7 @@ class LibraryScanner {
           topic:       parsed.topic       || 'general',
           tags:        LibraryScanner._parseTags(parsed.tags),
           steps:       Array.isArray(parsed.steps) ? parsed.steps : [],
+          handoffs:    Array.isArray(parsed.handoffs) ? parsed.handoffs : [],
           path:        fullPath,
           source
         });
@@ -226,19 +229,70 @@ class LibraryScanner {
 
   static _parseFrontmatter(content) {
     const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-    if (!match) return { frontmatter: {}, body: content.trim() };
+    if (!match) return { frontmatter: {}, rawYaml: '', body: content.trim() };
 
     const frontmatter = {};
-    const raw = match[1];
+    const rawYaml = match[1];
     const body = match[2].trim();
 
-    for (const line of raw.split(/\r?\n/)) {
+    for (const line of rawYaml.split(/\r?\n/)) {
       const kv = line.match(/^(\w[\w-]*):\s*(.*)$/);
       if (!kv) continue;
       frontmatter[kv[1]] = kv[2].trim();
     }
 
-    return { frontmatter, body };
+    return { frontmatter, rawYaml, body };
+  }
+
+  /**
+   * Parse the  handoffs:  YAML block array from raw frontmatter text.
+   *
+   * Supports the same format as VS Code custom-agent handoffs:
+   *
+   *   handoffs:
+   *     - label: Review this component
+   *       agent: aem-code-reviewer
+   *       prompt: Review the component I just built.
+   *       send: false
+   *
+   * Returns an array of { label, agent, prompt, send } objects.
+   * `send: true` means the caller should auto-submit rather than just
+   * pre-fill — mirrors the VS Code handoff spec.
+   */
+  static _parseHandoffs(rawYaml) {
+    const handoffs = [];
+    if (!rawYaml) return handoffs;
+
+    // Capture everything indented under  handoffs:
+    const blockMatch = rawYaml.match(/^handoffs:\s*\n((?:[ \t]+[^\n]*\n?)*)/m);
+    if (!blockMatch) return handoffs;
+
+    const block = blockMatch[1];
+
+    // Each list item starts with  <whitespace>-<whitespace>
+    const parts = block.split(/^[ \t]+-[ \t]/m);
+
+    for (const part of parts.slice(1)) {   // first element is always empty
+      if (!part.trim()) continue;
+      const h = {};
+      for (const line of part.split('\n')) {
+        // Match  key: rest-of-line  (prompt may contain colons — (.*) is greedy)
+        const kv = line.match(/^[ \t]*(\w+):\s*(.*?)\s*$/);
+        if (kv) {
+          h[kv[1]] = kv[2].replace(/^["']|["']$/g, ''); // strip surrounding quotes
+        }
+      }
+      if (h.agent || h.label) {
+        handoffs.push({
+          label:  h.label  || h.agent,
+          agent:  h.agent  || '',
+          prompt: h.prompt || '',
+          send:   h.send === 'true'
+        });
+      }
+    }
+
+    return handoffs;
   }
 
   static _parseTags(raw) {

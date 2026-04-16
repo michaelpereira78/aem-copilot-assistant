@@ -14,5 +14,13 @@
       "agent": "aem-code-reviewer",
       "haltOnIssues": true
     }
+  ],
+  "handoffs": [
+    {
+      "label": "Build a component for this template",
+      "agent": "aem-component-builder",
+      "prompt": "Build a new AEM component that can be used on the template we just created.",
+      "send": false
+    }
   ]
 }

@@ -19,5 +19,13 @@
       "agent": "aem-tester",
       "haltOnIssues": false
     }
+  ],
+  "handoffs": [
+    {
+      "label": "Run accessibility audit",
+      "agent": "accessibility-auditor",
+      "prompt": "Audit the component that was just built and reviewed for WCAG 2.1 AA accessibility compliance.",
+      "send": false
+    }
   ]
 }

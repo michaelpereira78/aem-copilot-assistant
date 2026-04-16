@@ -354,6 +354,11 @@ async function pickFromLibrary() {
  * Handler for /use-skill.
  * - With name= parameter: invokes directly (power-user path).
  * - Without name=: opens a Quick Pick so the developer can browse and select.
+ *
+ * After the response streams, any handoffs defined on the matched entry are
+ * surfaced as clickable buttons — mirroring the VS Code custom-agent handoffs
+ * spec without giving up the explicit output-injection and workspace-context
+ * advantages of the pipeline system.
  */
 async function useSkillHandler(request, _context, stream, token) {
   const params = parseParams(request.prompt);
@@ -376,6 +381,24 @@ async function useSkillHandler(request, _context, stream, token) {
   const userMessage = buildUserMessage(resolvedInput);
 
   await streamResponse(contextBlock, PROMPTS['use-skill'], userMessage, stream, token);
+
+  // ── Handoffs ─────────────────────────────────────────────────────────────
+  // Look up the invoked entry in the library and surface any handoffs it
+  // declares as native VS Code chat buttons.
+  const library    = projectCtx.library || { skills: [], agents: [], guides: [] };
+  const allEntries = [...library.skills, ...library.agents, ...library.guides];
+  const entry      = allEntries.find(e => e.name === skillName);
+
+  if (entry && Array.isArray(entry.handoffs) && entry.handoffs.length > 0) {
+    stream.markdown(`\n**Next steps:**\n`);
+    for (const h of entry.handoffs) {
+      stream.button({
+        command:   'aem-copilot.handoffToSkill',
+        arguments: [h.agent, h.prompt, h.send === true],
+        title:     h.label || h.agent
+      });
+    }
+  }
 }
 
 /**
@@ -764,7 +787,36 @@ function activate(context) {
       await vscode.workspace.fs.delete(vscode.Uri.file(pipeline.path));
       pipelinesProvider.refresh();
       vscode.window.showInformationMessage(`Deleted: ${pipeline.name}`);
-    })
+    }),
+
+    // ── Handoff command ────────────────────────────────────────────────────
+    // Called by stream.button() handoff buttons on both pipeline completion
+    // and standalone /use-skill responses.
+    //
+    // Mirrors the VS Code custom-agent handoffs spec:
+    //   - send=false (default): copies the command to clipboard and opens chat
+    //     so the developer can review and submit manually
+    //   - send=true: copies AND opens chat (user still clicks Submit, but the
+    //     prompt is pre-filled — full auto-submit is not supported via the
+    //     VS Code API today)
+    vscode.commands.registerCommand(
+      'aem-copilot.handoffToSkill',
+      async (agentName, prompt, _send) => {
+        if (!agentName) return;
+        const text = prompt
+          ? `@aem /use-skill name=${agentName} ${prompt}`
+          : `@aem /use-skill name=${agentName}`;
+
+        await vscode.env.clipboard.writeText(text);
+        const choice = await vscode.window.showInformationMessage(
+          `Handoff to "${agentName}" — command copied to clipboard. Paste it into Copilot Chat to continue.`,
+          'Open Copilot Chat'
+        );
+        if (choice === 'Open Copilot Chat') {
+          await vscode.commands.executeCommand('workbench.action.chat.open');
+        }
+      }
+    )
   );
 
   /**

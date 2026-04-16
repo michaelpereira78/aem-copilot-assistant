@@ -33,10 +33,12 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [Library structure](#library-structure)
   - [Skill file format](#skill-file-format)
   - [Agent file format](#agent-file-format)
+  - [Handoffs in agent files](#handoffs-in-agent-files)
   - [Guide file format](#guide-file-format)
   - [Shared library setup](#shared-library-setup)
   - [/list-skills](#list-skills)
   - [/use-skill](#use-skill)
+- [Scaffold commands — file writing and confirmation](#scaffold-commands--file-writing-and-confirmation)
 - [Agent Pipelines](#agent-pipelines)
   - [How pipelines work](#how-pipelines-work)
   - [Pipelines sidebar](#pipelines-sidebar)
@@ -44,6 +46,7 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [Building a pipeline](#building-a-pipeline)
   - [Pipeline file format](#pipeline-file-format)
   - [Halt on critical issues](#halt-on-critical-issues)
+  - [Handoffs](#handoffs)
   - [Included pipelines](#included-pipelines)
 - [Included Skills](#included-skills)
 - [Included Agents](#included-agents)
@@ -378,6 +381,38 @@ After writing the file, the assistant explains what was generated, recommends wo
 
 ---
 
+---
+
+## Scaffold commands — file writing and confirmation
+
+All scaffold commands (`/new-template`, `/new-component`, `/new-page`, `/new-theme`, `/new-policy`, `/new-site`) do more than describe what to create — they actually write the files to your workspace.
+
+**How it works:**
+
+1. The AI generates all file content and streams it to the chat as normal
+2. After the response completes, a **confirmation Quick Pick** appears listing every file that is about to be created, with each file's workspace-relative path
+3. All files are pre-checked — the common case is to accept everything
+4. Uncheck any files you want to skip, then press **Enter** to write
+5. Press **Escape** to cancel without writing anything
+6. A summary appears in chat confirming which files were written
+
+```
+Create 4 files in workspace?
+
+✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/.content.xml
+✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/structure/.content.xml
+✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/policies/.content.xml
+✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/initial/.content.xml
+```
+
+**Path resolution:** Files are placed under the JCR root detected by the workspace scanner — the same `confRoot`, `appsRoot`, and `contentRoot` paths shown by `/scan`. If the scanner has not detected a root for the file's JCR prefix, the file falls back to `<workspace root>/jcr_root/<path>`.
+
+**Parent directories** are created automatically if they do not already exist.
+
+> The confirmation step is always shown — files are never written without your approval.
+
+---
+
 ### /run-pipeline
 
 Run an agent pipeline — an ordered sequence of agents that execute automatically, each receiving the full output of all previous steps as context.
@@ -609,6 +644,7 @@ One-sentence verdict.
 | `tags` | No | Array or comma-separated list for filtering |
 | `model` | No | Claude model ID — defaults to `claude-sonnet-4-6` |
 | `tools` | No | List of tools the agent is designed to use (informational) |
+| `handoffs` | No | YAML block array of suggested next actions — see below |
 
 The file body (everything after the closing `---`) is the agent's full system prompt. There is no `instructions` key — just write the prompt directly as markdown.
 
@@ -622,6 +658,41 @@ A well-written agent body has four parts:
 4. **Output format** — the exact structure of the response, with section headers and severity levels
 
 > **Legacy `.json` agents are still supported.** If your team has existing `.json` agent files they will continue to load. Migrate them to `.md` at your own pace — if both formats exist for the same agent name, the `.md` file takes precedence.
+
+---
+
+### Handoffs in agent files
+
+Add a `handoffs:` block to any agent's frontmatter to surface "what's next" buttons after the agent responds via `/use-skill`. The format matches the VS Code custom-agent handoffs spec:
+
+```markdown
+---
+name: aem-component-builder
+description: Builds a complete AEM 6.5 component
+topic: components
+tags: [builder, component]
+model: claude-sonnet-4-6
+tools: []
+handoffs:
+  - label: Review this component
+    agent: aem-code-reviewer
+    prompt: Review the component I just built for correctness and AEM 6.5 compliance.
+  - label: Run accessibility audit
+    agent: accessibility-auditor
+    prompt: Audit the component I just built for WCAG 2.1 AA accessibility compliance.
+---
+```
+
+**Handoff fields**
+
+| Field | Required | Description |
+|---|---|---|
+| `label` | Yes | Button text shown below the agent's response |
+| `agent` | Yes | Name of the agent to hand off to — must exist in the library |
+| `prompt` | No | Message pre-filled for the next agent |
+| `send` | No | `false` (default) — pre-fills for review. `true` — marks for auto-submit |
+
+When a handoff button is clicked, the extension copies `/use-skill name=<agent> <prompt>` to the clipboard and offers to open Copilot Chat — keeping a human in the loop before the next agent runs.
 
 ---
 
@@ -761,9 +832,23 @@ Step 1: aem-component-builder  ──▶  generates HTL, Sling model, dialog XML
 Step 2: aem-code-reviewer      ──▶  reviews Step 1's output against AEM checklist
          ↓ (if CRITICAL found → pipeline halts here)
 Step 3: aem-tester             ──▶  generates JUnit 5 tests + author QA checklist
+         ↓
+✅ Pipeline complete
+   [Run accessibility audit]   ──▶  handoff button for the next suggested action
 ```
 
-All three steps stream their output live to the chat window, separated by step headers. The developer can read along as the pipeline progresses.
+All steps stream live to the chat window, separated by step headers. The developer can read along as the pipeline progresses.
+
+**Key advantages over VS Code native handoffs:**
+
+| | VS Code Handoffs | Pipelines |
+|---|---|---|
+| Output passed to next step | Chat history only | Full captured text injected into each step's prompt |
+| Halt on critical issues | — | ✅ stops on `CRITICAL ISSUES FOUND` |
+| Workspace context per step | — | ✅ fresh scan injected into every step |
+| File writing | — | ✅ writes files with confirmation |
+| Multi-step in one run | One click at a time | ✅ N steps automated |
+| "What's next" buttons | ✅ | ✅ via `handoffs` (see below) |
 
 ---
 
@@ -889,6 +974,14 @@ Create a `.json` file in `.aem-library/pipelines/` using the format described be
       "agent": "aem-tester",
       "haltOnIssues": false
     }
+  ],
+  "handoffs": [
+    {
+      "label": "Run accessibility audit",
+      "agent": "accessibility-auditor",
+      "prompt": "Audit the component that was just built for WCAG 2.1 AA compliance.",
+      "send": false
+    }
   ]
 }
 ```
@@ -905,6 +998,15 @@ Create a `.json` file in `.aem-library/pipelines/` using the format described be
 
 *Exactly one of `agent`, `skill`, or `guide` is required per step.
 
+**Top-level handoff fields** (see [Handoffs](#handoffs))
+
+| Field | Required | Description |
+|---|---|---|
+| `label` | Yes | Button text shown after pipeline completion |
+| `agent` | Yes | Agent name to hand off to |
+| `prompt` | No | Pre-filled message sent to the target agent |
+| `send` | No | `false` (default) — prompt is pre-filled for review. `true` — prompt is auto-submitted |
+
 ---
 
 ### Halt on critical issues
@@ -916,6 +1018,56 @@ When `haltOnIssues: true` is set on a step, the pipeline runner scans the step's
 - The developer fixes the flagged issues, then re-runs the pipeline
 
 This prevents downstream agents (like the tester) from generating tests for code that has known critical defects.
+
+---
+
+### Handoffs
+
+Handoffs are clickable buttons that appear after a pipeline finishes (or after a standalone `/use-skill` run) to suggest the natural next action. They match the VS Code custom-agent handoffs spec — `label`, `agent`, `prompt`, `send` — so the format is immediately familiar if you have used native VS Code agents.
+
+**Where they appear:**
+
+- **After a pipeline completes** — defined in the pipeline JSON's `handoffs` array
+- **After `/use-skill` runs an agent** — defined in the agent's `handoffs:` frontmatter block
+
+**What clicking a handoff button does:**
+
+1. The command `/use-skill name=<agent> <prompt>` is copied to your clipboard
+2. A notification appears with an **Open Copilot Chat** button
+3. Paste the command into chat and press Enter to continue
+
+> This keeps a human in the loop — the developer reviews the pre-filled prompt before submitting, matching the behaviour of VS Code's native `send: false` handoffs.
+
+**Defining handoffs in a pipeline JSON:**
+
+```json
+"handoffs": [
+  {
+    "label": "Run accessibility audit",
+    "agent": "accessibility-auditor",
+    "prompt": "Audit the component that was just built for WCAG 2.1 AA compliance.",
+    "send": false
+  }
+]
+```
+
+**Defining handoffs in an agent `.md` file:**
+
+```markdown
+---
+name: aem-component-builder
+...
+handoffs:
+  - label: Review this component
+    agent: aem-code-reviewer
+    prompt: Review the component I just built for correctness and AEM 6.5 compliance.
+  - label: Run accessibility audit
+    agent: accessibility-auditor
+    prompt: Audit the component I just built for WCAG 2.1 AA accessibility compliance.
+---
+```
+
+See [Handoffs in agent files](#handoffs-in-agent-files) for the full frontmatter spec.
 
 ---
 
@@ -935,6 +1087,8 @@ The most commonly used pipeline. Builds a complete AEM component from scratch, r
 | Code Review | `aem-code-reviewer` | **Yes** |
 | Generate Tests & QA Checklist | `aem-tester` | No |
 
+**Handoff after completion:** `[Run accessibility audit]` → `accessibility-auditor`
+
 Example:
 ```
 @aem /run-pipeline name=new-component-pipeline name=hero site=my-brand group="My Brand - Content"
@@ -952,6 +1106,8 @@ Builds an editable template and immediately reviews it for correctness.
 |---|---|---|
 | Build Template | `aem-template-builder` | No |
 | Code Review | `aem-code-reviewer` | **Yes** |
+
+**Handoff after completion:** `[Build a component for this template]` → `aem-component-builder`
 
 Example:
 ```
@@ -1041,6 +1197,8 @@ Generates a complete AEM 6.5 component matched to the detected workspace: `.cont
 
 **Output:** component node → HTL with BEM and XSS guards → Sling model with `@ValueMapValue` and `@PostConstruct` → dialog with Coral 3 fields → registration checklist
 
+**Handoffs:** `[Review this component]` → `aem-code-reviewer` · `[Run accessibility audit]` → `accessibility-auditor`
+
 ---
 
 #### aem-template-builder
@@ -1051,6 +1209,8 @@ Generates a complete AEM 6.5 component matched to the detected workspace: `.cont
 Generates a complete AEM 6.5 editable template with all four required nodes, scoped to the detected site. Validates `allowedPaths` scope, replicates the child-node set of existing templates, and matches detected XML indentation.
 
 **Output:** root `.content.xml` → `structure` node → `policies` node → `initial` node → enable steps
+
+**Handoffs:** `[Review this template]` → `aem-code-reviewer`
 
 ---
 
@@ -1064,6 +1224,8 @@ Reviews code from the previous pipeline step against a structured AEM 6.5 checkl
 **Checklist covers:** component node, HTL (XSS, logic-free, null guards), Sling model (annotations, no session calls, interface pattern), dialog (Coral 3 only, field name matching), template nodes (allowedPaths scope, four-node presence)
 
 **Output:** verdict → findings table (CRITICAL / WARNING / INFO) → corrected code for critical findings → positive notes
+
+**Handoffs:** `[Generate tests]` → `aem-tester`
 
 ---
 
@@ -1225,7 +1387,8 @@ Follow the prompts to name the pipeline, describe it, and add steps. Each step a
 - Put the most destructive or expensive step first — the reviewer gets more context as it accumulates
 - Use `haltOnIssues: true` only on review/validation steps, not builders or testers
 - Keep step labels short — they appear as headers in the chat output
-- The `agent` field must match the `name` property in the agent's JSON file exactly
+- The `agent` field must match the `name` property in the agent's file exactly
+- Add a `handoffs` array to suggest the natural next action after the pipeline completes (e.g. an accessibility audit after a component build)
 
 ### Sharing with the team
 

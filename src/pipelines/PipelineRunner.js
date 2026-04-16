@@ -108,6 +108,22 @@ class PipelineRunner {
       `\n\n---\n\n` +
       `> ✅ **Pipeline complete** — all ${total} step${total !== 1 ? 's' : ''} finished.\n`
     );
+
+    // ── Handoffs — surface "what's next" buttons ────────────────────────────
+    // Mirrors the VS Code custom-agent handoffs spec: each entry in
+    // pipeline.handoffs becomes a clickable button that pre-fills (or
+    // auto-submits) the next agent invocation.
+    const handoffs = pipeline.handoffs || [];
+    if (handoffs.length > 0) {
+      stream.markdown(`\n**Next steps:**\n`);
+      for (const h of handoffs) {
+        stream.button({
+          command:   'aem-copilot.handoffToSkill',
+          arguments: [h.agent, h.prompt, h.send === true],
+          title:     h.label || h.agent
+        });
+      }
+    }
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────

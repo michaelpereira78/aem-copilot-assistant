@@ -91,6 +91,11 @@
         "category": "AEM Pipelines"
       },
       {
+        "command": "aem-copilot.handoffToSkill",
+        "title": "Hand off to skill / agent",
+        "category": "AEM Pipelines"
+      },
+      {
         "command": "aem-copilot.generateCopilotInstructions",
         "title": "Generate Copilot Instructions",
         "icon": "$(sparkle)",
