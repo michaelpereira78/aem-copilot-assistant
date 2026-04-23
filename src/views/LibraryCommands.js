@@ -71,13 +71,13 @@ Fenced blocks for issue-level findings only.
 `;
 }
 
-function pipelineTemplate(name, steps) {
+function workflowTemplate(name, steps) {
   return JSON.stringify(
     {
       name,
-      description: 'Brief one-line description of what this pipeline does',
+      description: 'Brief one-line description of what this agent workflow does',
       topic: 'components',
-      tags: ['pipeline'],
+      tags: ['workflow'],
       steps: steps.length > 0 ? steps : [
         { label: 'Build', agent: 'aem-component-builder', haltOnIssues: false },
         { label: 'Review', agent: 'aem-code-reviewer', haltOnIssues: true },
@@ -135,14 +135,14 @@ async function resolveWriteDir(type) {
   return path.join(folders[0].uri.fsPath, '.aem-library', type);
 }
 
-// ─── Pipeline wizard ──────────────────────────────────────────────────────────
+// ─── Agent Workflow wizard ────────────────────────────────────────────────────
 
-async function createPipeline(provider) {
+async function createWorkflow(provider) {
   // Step 1: name
   const name = await vscode.window.showInputBox({
-    title: 'New Pipeline (1/3) — Name',
-    prompt: 'Enter a name for the pipeline (kebab-case, e.g. my-component-pipeline)',
-    placeHolder: 'my-pipeline',
+    title: 'New Agent Workflow (1/3) — Name',
+    prompt: 'Enter a name for the workflow (kebab-case, e.g. my-component-workflow)',
+    placeHolder: 'my-workflow',
     validateInput(v) {
       if (!v || !v.trim()) return 'Name is required';
       if (/\s/.test(v)) return 'No spaces — use kebab-case';
@@ -154,8 +154,8 @@ async function createPipeline(provider) {
 
   // Step 2: description
   const description = await vscode.window.showInputBox({
-    title: 'New Pipeline (2/3) — Description',
-    prompt: 'One-line description of what this pipeline does',
+    title: 'New Agent Workflow (2/3) — Description',
+    prompt: 'One-line description of what this agent workflow does',
     placeHolder: 'Build, review, and test a new AEM component',
     validateInput(v) {
       if (!v || !v.trim()) return 'Description is required';
@@ -172,12 +172,12 @@ async function createPipeline(provider) {
     const action = await vscode.window.showQuickPick(
       [
         { label: '$(add) Add a step', value: 'add' },
-        { label: `$(check) Done — create pipeline with ${steps.length} step${steps.length !== 1 ? 's' : ''}`, value: 'done' }
+        { label: `$(check) Done — create workflow with ${steps.length} step${steps.length !== 1 ? 's' : ''}`, value: 'done' }
       ],
       {
-        title: `New Pipeline (3/3) — Steps  [${steps.length} added so far]`,
+        title: `New Agent Workflow (3/3) — Steps  [${steps.length} added so far]`,
         placeHolder: steps.length === 0
-          ? 'Add at least one step to the pipeline'
+          ? 'Add at least one step to the workflow'
           : steps.map((s, i) => `${i + 1}. ${s.label}`).join('  →  ')
       }
     );
@@ -201,7 +201,7 @@ async function createPipeline(provider) {
 
     const stepLabel = await vscode.window.showInputBox({
       title: `Step ${steps.length + 1} — Label`,
-      prompt: 'Short label shown in the pipeline output (e.g. "Code Review")',
+      prompt: 'Short label shown in the workflow output (e.g. "Code Review")',
       value: entryName.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
     });
     if (!stepLabel) continue;
@@ -209,7 +209,7 @@ async function createPipeline(provider) {
     const haltPick = await vscode.window.showQuickPick(
       [
         { label: '$(circle-slash) No — continue even if this step finds issues', value: false },
-        { label: '$(stop) Yes — halt the pipeline if this step outputs CRITICAL', value: true }
+        { label: '$(stop) Yes — halt the workflow if this step outputs CRITICAL', value: true }
       ],
       { title: `Step ${steps.length + 1} — Halt on critical issues?` }
     );
@@ -219,29 +219,29 @@ async function createPipeline(provider) {
   }
 
   if (steps.length === 0) {
-    vscode.window.showWarningMessage('Pipeline not created — at least one step is required.');
+    vscode.window.showWarningMessage('Agent Workflow not created — at least one step is required.');
     return;
   }
 
   // Write the file
-  const dir = await resolveWriteDir('pipelines');
+  const dir = await resolveWriteDir('workflows');
   if (!dir) return;
   await ensureDir(dir);
 
   const filePath = path.join(dir, `${name}.json`);
-  const content  = JSON.stringify({ name, description, topic: 'general', tags: ['pipeline'], steps }, null, 2);
+  const content  = JSON.stringify({ name, description, topic: 'general', tags: ['workflow'], steps }, null, 2);
   const fileUri  = await writeFile(filePath, content);
   provider.refresh();
 
   const doc = await vscode.workspace.openTextDocument(fileUri);
   await vscode.window.showTextDocument(doc);
-  vscode.window.showInformationMessage(`Pipeline created: ${name} (${steps.length} steps)`);
+  vscode.window.showInformationMessage(`Agent Workflow created: ${name} (${steps.length} steps)`);
 }
 
 // ─── Create handlers ──────────────────────────────────────────────────────────
 
 async function createEntry(type, provider) {
-  if (type === 'pipelines') return createPipeline(provider);
+  if (type === 'workflows') return createWorkflow(provider);
 
   const typeLabel = type.slice(0, -1); // 'skills' → 'skill'
   const ext = '.md'; // agents, skills, and guides all use markdown
@@ -279,7 +279,7 @@ async function createEntry(type, provider) {
 
   const template = type === 'skills'    ? skillTemplate(name)
                  : type === 'agents'    ? agentTemplate(name)
-                 : type === 'pipelines' ? pipelineTemplate(name, [])
+                 : type === 'workflows' ? workflowTemplate(name, [])
                  : guideTemplate(name);
 
   const fileUri = await writeFile(filePath, template);
@@ -411,7 +411,7 @@ async function duplicateEntry(item, provider) {
 
 module.exports = {
   createEntry,
-  createPipeline,
+  createWorkflow,
   editEntry,
   renameEntry,
   deleteEntry,

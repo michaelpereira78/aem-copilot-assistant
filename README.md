@@ -21,8 +21,8 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [/scan](#scan)
   - [/diff](#diff)
   - [/init-copilot](#init-copilot)
-  - [/run-pipeline](#run-pipeline)
-  - [/build-pipeline](#build-pipeline)
+  - [/run-workflow](#run-workflow)
+  - [/build-workflow](#build-workflow)
 - [Copilot Instructions](#copilot-instructions)
   - [What is in the generated file](#what-is-in-the-generated-file)
   - [Smart sync — preserving your edits](#smart-sync--preserving-your-edits)
@@ -39,20 +39,20 @@ A VS Code extension that adds an `@aem` chat participant to GitHub Copilot Chat.
   - [/list-skills](#list-skills)
   - [/use-skill](#use-skill)
 - [Scaffold commands — file writing and confirmation](#scaffold-commands--file-writing-and-confirmation)
-- [Agent Pipelines](#agent-pipelines)
-  - [How pipelines work](#how-pipelines-work)
-  - [Pipelines sidebar](#pipelines-sidebar)
-  - [Running a pipeline](#running-a-pipeline)
-  - [Building a pipeline](#building-a-pipeline)
-  - [Pipeline file format](#pipeline-file-format)
+- [Agent Workflows](#agent-workflows)
+  - [How workflows work](#how-workflows-work)
+  - [Agent Workflows sidebar](#agent-workflows-sidebar)
+  - [Running a workflow](#running-a-workflow)
+  - [Building a workflow](#building-a-workflow)
+  - [Workflow file format](#workflow-file-format)
   - [Halt on critical issues](#halt-on-critical-issues)
   - [Handoffs](#handoffs)
-  - [Included pipelines](#included-pipelines)
+  - [Included workflows](#included-workflows)
 - [Included Skills](#included-skills)
 - [Included Agents](#included-agents)
-  - [Pipeline agents](#pipeline-agents)
+  - [Workflow agents](#workflow-agents)
 - [Included Guides](#included-guides)
-- [Adding your own Skills, Agents, Guides, and Pipelines](#adding-your-own-skills-agents-guides-and-pipelines)
+- [Adding your own Skills, Agents, Guides, and Workflows](#adding-your-own-skills-agents-guides-and-workflows)
 - [Parameter reference](#parameter-reference)
 
 ---
@@ -413,42 +413,42 @@ Create 4 files in workspace?
 
 ---
 
-### /run-pipeline
+### /run-workflow
 
-Run an agent pipeline — an ordered sequence of agents that execute automatically, each receiving the full output of all previous steps as context.
+Run an agent workflow — an ordered sequence of agents that execute automatically, each receiving the full output of all previous steps as context.
 
 ```
-@aem /run-pipeline
-@aem /run-pipeline name=new-component-pipeline
-@aem /run-pipeline name=new-component-pipeline name=hero site=my-brand
+@aem /run-workflow
+@aem /run-workflow name=new-component-workflow
+@aem /run-workflow name=new-component-workflow name=hero site=my-brand
 ```
 
-With no arguments a searchable Quick Pick opens listing every pipeline in the library. Select one and it starts immediately. Pass `name=` to skip the picker and run directly. Any additional `key=value` parameters are forwarded to all steps as developer input.
+With no arguments a searchable Quick Pick opens listing every workflow in the library. Select one and it starts immediately. Pass `name=` to skip the picker and run directly. Any additional `key=value` parameters are forwarded to all steps as developer input.
 
 **What happens during a run:**
 
-1. A pipeline header is printed showing the name, description, and step count
+1. A workflow header is printed showing the name, description, and step count
 2. Each step runs in sequence — its label, agent, and output are streamed live to chat
 3. Every step receives the workspace context block **plus the full output of all previous steps** — so a reviewer sees exactly what the builder generated
-4. If a step is configured with `haltOnIssues: true` and its output contains `CRITICAL ISSUES FOUND`, the pipeline stops and the developer is asked to fix the issues before continuing
+4. If a step is configured with `haltOnIssues: true` and its output contains `CRITICAL ISSUES FOUND`, the workflow stops and the developer is asked to fix the issues before continuing
 5. A completion summary is printed when all steps pass
 
 ---
 
-### /build-pipeline
+### /build-workflow
 
-Open a step-by-step wizard in VS Code to compose and save a new pipeline.
+Open a step-by-step wizard in VS Code to compose and save a new agent workflow.
 
 ```
-@aem /build-pipeline
+@aem /build-workflow
 ```
 
 The wizard asks:
 1. **Name** — kebab-case identifier used in `name=` parameter
 2. **Description** — one-liner shown in the picker
-3. **Steps** — add as many as needed; for each step, enter the agent/skill name, a display label, and whether to halt the pipeline on critical issues
+3. **Steps** — add as many as needed; for each step, enter the agent/skill name, a display label, and whether to halt the workflow on critical issues
 
-The resulting `.json` file is saved to `.aem-library/pipelines/` and immediately appears in the sidebar and the `/run-pipeline` picker.
+The resulting `.json` file is saved to `.aem-library/workflows/` and immediately appears in the sidebar and the `/run-workflow` picker.
 
 ---
 
@@ -816,32 +816,32 @@ A **Browse team library** chip always appears as the last option.
 
 ---
 
-## Agent Pipelines
+## Agent Workflows
 
-Pipelines let you chain multiple agents together so they run automatically in sequence. Instead of manually copying the output of one agent into the next prompt, the pipeline runner does this for you — each step receives the full output of all previous steps as context before generating its response.
+Agent Workflows let you chain multiple agents together so they run automatically in sequence. Instead of manually copying the output of one agent into the next prompt, the workflow runner does this for you — each step receives the full output of all previous steps as context before generating its response.
 
 ---
 
-### How pipelines work
+### How workflows work
 
 ```
-Developer runs: @aem /run-pipeline name=new-component-pipeline name=hero site=my-brand
+Developer runs: @aem /run-workflow name=new-component-workflow name=hero site=my-brand
 
 Step 1: aem-component-builder  ──▶  generates HTL, Sling model, dialog XML
          ↓ (full output passed as context)
 Step 2: aem-code-reviewer      ──▶  reviews Step 1's output against AEM checklist
-         ↓ (if CRITICAL found → pipeline halts here)
+         ↓ (if CRITICAL found → workflow halts here)
 Step 3: aem-tester             ──▶  generates JUnit 5 tests + author QA checklist
          ↓
-✅ Pipeline complete
+✅ Agent Workflow complete
    [Run accessibility audit]   ──▶  handoff button for the next suggested action
 ```
 
-All steps stream live to the chat window, separated by step headers. The developer can read along as the pipeline progresses.
+All steps stream live to the chat window, separated by step headers. The developer can read along as the workflow progresses.
 
 **Key advantages over VS Code native handoffs:**
 
-| | VS Code Handoffs | Pipelines |
+| | VS Code Handoffs | Agent Workflows |
 |---|---|---|
 | Output passed to next step | Chat history only | Full captured text injected into each step's prompt |
 | Halt on critical issues | — | ✅ stops on `CRITICAL ISSUES FOUND` |
@@ -852,89 +852,89 @@ All steps stream live to the chat window, separated by step headers. The develop
 
 ---
 
-### Pipelines sidebar
+### Agent Workflows sidebar
 
-Pipelines have their own dedicated panel in the AEM Library activity bar, separate from Skills, Agents, and Guides. Open the sidebar and look for the **Pipelines** section.
+Agent Workflows have their own dedicated panel in the AEM Library activity bar, separate from Skills, Agents, and Guides. Open the sidebar and look for the **Agent Workflows** section.
 
 **What the panel shows:**
 
-Each pipeline is listed as a collapsible item. Expand it to see every step in order — including the step number, label, agent/skill name, and a `⚠️` indicator if the step is configured to halt on critical issues.
+Each workflow is listed as a collapsible item. Expand it to see every step in order — including the step number, label, agent/skill name, and a `⚠️` indicator if the step is configured to halt on critical issues.
 
 ```
-▾ new-component-pipeline         3 steps
+▾ new-component-workflow         3 steps
     1. Build                      aem-component-builder
     2. Code Review          ⚠️    aem-code-reviewer
     3. Generate Tests             aem-tester
 
-▾ new-template-pipeline          2 steps
+▾ new-template-workflow          2 steps
     1. Build Template             aem-template-builder
     2. Code Review          ⚠️    aem-code-reviewer
 ```
 
-**Toolbar buttons** (top-right of the Pipelines panel):
+**Toolbar buttons** (top-right of the Agent Workflows panel):
 
 | Button | Action |
 |---|---|
-| `$(add)` New Pipeline | Opens the step-by-step wizard to create and save a new pipeline |
-| `$(refresh)` Refresh | Re-scans `.aem-library/pipelines/` and reloads the list |
+| `$(add)` New Agent Workflow | Opens the step-by-step wizard to create and save a new workflow |
+| `$(refresh)` Refresh | Re-scans `.aem-library/workflows/` and reloads the list |
 
-**Inline item actions** (hover over a pipeline row):
+**Inline item actions** (hover over a workflow row):
 
 | Button | Action |
 |---|---|
-| `$(play)` Run | Copies `@aem /run-pipeline name=x` to the clipboard and offers to open Copilot Chat |
-| `$(edit)` Edit | Opens the pipeline's `.json` file in the editor |
+| `$(play)` Run | Copies `@aem /run-workflow name=x` to the clipboard and offers to open Copilot Chat |
+| `$(edit)` Edit | Opens the workflow's `.json` file in the editor |
 | `$(trash)` Delete | Deletes the file after confirmation |
 
-**Right-click context menu** (on any pipeline):
+**Right-click context menu** (on any workflow):
 
 | Action | What it does |
 |---|---|
 | Rename | Prompts for a new name, updates the `name` field in the file, and renames the file |
-| Duplicate | Copies the pipeline with a new name and opens the copy in the editor |
+| Duplicate | Copies the workflow with a new name and opens the copy in the editor |
 
-**Empty state:** When no pipelines exist the panel shows a hint to run `@aem /build-pipeline` or manually add files to `.aem-library/pipelines/`.
+**Empty state:** When no workflows exist the panel shows a hint to run `@aem /build-workflow` or manually add files to `.aem-library/workflows/`.
 
-**Auto-refresh:** The panel updates automatically whenever a file inside `.aem-library/pipelines/` is saved, so changes from a text editor or a `git pull` appear immediately without a manual refresh.
+**Auto-refresh:** The panel updates automatically whenever a file inside `.aem-library/workflows/` is saved, so changes from a text editor or a `git pull` appear immediately without a manual refresh.
 
 ---
 
-### Running a pipeline
+### Running a workflow
 
 **Option 1 — Searchable picker**
 
 ```
-@aem /run-pipeline
+@aem /run-workflow
 ```
 
-A Quick Pick opens listing every pipeline in `.aem-library/pipelines/`. Each entry shows the pipeline name, step count, and description. Select one to start immediately.
+A Quick Pick opens listing every workflow in `.aem-library/workflows/`. Each entry shows the workflow name, step count, and description. Select one to start immediately.
 
 **Option 2 — Direct by name**
 
 ```
-@aem /run-pipeline name=new-component-pipeline
+@aem /run-workflow name=new-component-workflow
 ```
 
 **Option 3 — With parameters**
 
-Pass any `key=value` parameters after the pipeline name. They are forwarded to every step as developer input:
+Pass any `key=value` parameters after the workflow name. They are forwarded to every step as developer input:
 
 ```
-@aem /run-pipeline name=new-component-pipeline name=hero site=my-brand group="My Brand - Content"
+@aem /run-workflow name=new-component-workflow name=hero site=my-brand group="My Brand - Content"
 ```
 
 **Option 4 — Sidebar click**
 
-Hover over any pipeline in the **Pipelines** sidebar panel and click the `$(play)` Run button. VS Code copies `@aem /run-pipeline name=x` to your clipboard and offers to open Copilot Chat. Paste and press Enter to start the run.
+Hover over any workflow in the **Agent Workflows** sidebar panel and click the `$(play)` Run button. VS Code copies `@aem /run-workflow name=x` to your clipboard and offers to open Copilot Chat. Paste and press Enter to start the run.
 
 ---
 
-### Building a pipeline
+### Building a workflow
 
 **Option 1 — Wizard (recommended)**
 
 ```
-@aem /build-pipeline
+@aem /build-workflow
 ```
 
 A step-by-step Quick Pick wizard opens in VS Code:
@@ -942,22 +942,22 @@ A step-by-step Quick Pick wizard opens in VS Code:
 1. Enter a name (kebab-case)
 2. Enter a description
 3. Add steps one at a time — for each step, provide the agent/skill name, a display label, and whether to halt on critical issues
-4. When done, the pipeline JSON is saved to `.aem-library/pipelines/` and opened in the editor
+4. When done, the workflow JSON is saved to `.aem-library/workflows/` and opened in the editor
 
 **Option 2 — Write JSON directly**
 
-Create a `.json` file in `.aem-library/pipelines/` using the format described below. The **Pipelines** sidebar panel refreshes automatically when the file is saved.
+Create a `.json` file in `.aem-library/workflows/` using the format described below. The **Agent Workflows** sidebar panel refreshes automatically when the file is saved.
 
 ---
 
-### Pipeline file format
+### Workflow file format
 
 ```json
 {
-  "name": "my-pipeline",
+  "name": "my-workflow",
   "description": "One-line description shown in the picker",
   "topic": "components",
-  "tags": ["pipeline", "scaffold"],
+  "tags": ["workflow", "scaffold"],
   "steps": [
     {
       "label": "Build",
@@ -990,11 +990,11 @@ Create a `.json` file in `.aem-library/pipelines/` using the format described be
 
 | Field | Required | Description |
 |---|---|---|
-| `label` | Yes | Display name shown in the pipeline step header during execution |
+| `label` | Yes | Display name shown in the workflow step header during execution |
 | `agent` | Yes* | Name of an agent from `.aem-library/agents/` |
 | `skill` | Yes* | Name of a skill from `.aem-library/skills/` (use `agent` or `skill`, not both) |
 | `guide` | Yes* | Name of a guide from `.aem-library/guides/` |
-| `haltOnIssues` | No | If `true`, the pipeline stops when the step's output contains `CRITICAL ISSUES FOUND`. Default: `false` |
+| `haltOnIssues` | No | If `true`, the workflow stops when the step's output contains `CRITICAL ISSUES FOUND`. Default: `false` |
 
 *Exactly one of `agent`, `skill`, or `guide` is required per step.
 
@@ -1002,7 +1002,7 @@ Create a `.json` file in `.aem-library/pipelines/` using the format described be
 
 | Field | Required | Description |
 |---|---|---|
-| `label` | Yes | Button text shown after pipeline completion |
+| `label` | Yes | Button text shown after workflow completion |
 | `agent` | Yes | Agent name to hand off to |
 | `prompt` | No | Pre-filled message sent to the target agent |
 | `send` | No | `false` (default) — prompt is pre-filled for review. `true` — prompt is auto-submitted |
@@ -1011,11 +1011,11 @@ Create a `.json` file in `.aem-library/pipelines/` using the format described be
 
 ### Halt on critical issues
 
-When `haltOnIssues: true` is set on a step, the pipeline runner scans the step's output for the phrase `CRITICAL ISSUES FOUND` (produced by the `aem-code-reviewer` agent and any agent that follows the same verdict format). If detected:
+When `haltOnIssues: true` is set on a step, the workflow runner scans the step's output for the phrase `CRITICAL ISSUES FOUND` (produced by the `aem-code-reviewer` agent and any agent that follows the same verdict format). If detected:
 
-- The pipeline stops immediately after that step
-- A `🛑 Pipeline halted` message is printed explaining which step caused the halt
-- The developer fixes the flagged issues, then re-runs the pipeline
+- The workflow stops immediately after that step
+- A `🛑 Agent Workflow halted` message is printed explaining which step caused the halt
+- The developer fixes the flagged issues, then re-runs the workflow
 
 This prevents downstream agents (like the tester) from generating tests for code that has known critical defects.
 
@@ -1023,11 +1023,11 @@ This prevents downstream agents (like the tester) from generating tests for code
 
 ### Handoffs
 
-Handoffs are clickable buttons that appear after a pipeline finishes (or after a standalone `/use-skill` run) to suggest the natural next action. They match the VS Code custom-agent handoffs spec — `label`, `agent`, `prompt`, `send` — so the format is immediately familiar if you have used native VS Code agents.
+Handoffs are clickable buttons that appear after a workflow finishes (or after a standalone `/use-skill` run) to suggest the natural next action. They match the VS Code custom-agent handoffs spec — `label`, `agent`, `prompt`, `send` — so the format is immediately familiar if you have used native VS Code agents.
 
 **Where they appear:**
 
-- **After a pipeline completes** — defined in the pipeline JSON's `handoffs` array
+- **After a workflow completes** — defined in the workflow JSON's `handoffs` array
 - **After `/use-skill` runs an agent** — defined in the agent's `handoffs:` frontmatter block
 
 **What clicking a handoff button does:**
@@ -1038,7 +1038,7 @@ Handoffs are clickable buttons that appear after a pipeline finishes (or after a
 
 > This keeps a human in the loop — the developer reviews the pre-filled prompt before submitting, matching the behaviour of VS Code's native `send: false` handoffs.
 
-**Defining handoffs in a pipeline JSON:**
+**Defining handoffs in a workflow JSON:**
 
 ```json
 "handoffs": [
@@ -1071,15 +1071,15 @@ See [Handoffs in agent files](#handoffs-in-agent-files) for the full frontmatter
 
 ---
 
-### Included pipelines
+### Included workflows
 
-Three pipelines ship with the extension in `.aem-library/pipelines/`.
+Three workflows ship with the extension in `.aem-library/workflows/`.
 
-#### new-component-pipeline
+#### new-component-workflow
 
-**Run:** `@aem /run-pipeline name=new-component-pipeline`
+**Run:** `@aem /run-workflow name=new-component-workflow`
 
-The most commonly used pipeline. Builds a complete AEM component from scratch, reviews it, and produces tests.
+The most commonly used workflow. Builds a complete AEM component from scratch, reviews it, and produces tests.
 
 | Step | Agent | Halts on critical? |
 |---|---|---|
@@ -1091,14 +1091,14 @@ The most commonly used pipeline. Builds a complete AEM component from scratch, r
 
 Example:
 ```
-@aem /run-pipeline name=new-component-pipeline name=hero site=my-brand group="My Brand - Content"
+@aem /run-workflow name=new-component-workflow name=hero site=my-brand group="My Brand - Content"
 ```
 
 ---
 
-#### new-template-pipeline
+#### new-template-workflow
 
-**Run:** `@aem /run-pipeline name=new-template-pipeline`
+**Run:** `@aem /run-workflow name=new-template-workflow`
 
 Builds an editable template and immediately reviews it for correctness.
 
@@ -1111,14 +1111,14 @@ Builds an editable template and immediately reviews it for correctness.
 
 Example:
 ```
-@aem /run-pipeline name=new-template-pipeline name=content-page site=my-brand
+@aem /run-workflow name=new-template-workflow name=content-page site=my-brand
 ```
 
 ---
 
-#### code-audit-pipeline
+#### code-audit-workflow
 
-**Run:** `@aem /run-pipeline name=code-audit-pipeline`
+**Run:** `@aem /run-workflow name=code-audit-workflow`
 
 Runs a three-agent audit on existing code. Paste the code you want audited in the same message, or reference a file.
 
@@ -1130,7 +1130,7 @@ Runs a three-agent audit on existing code. Paste the code you want audited in th
 
 Example:
 ```
-@aem /run-pipeline name=code-audit-pipeline
+@aem /run-workflow name=code-audit-workflow
 ...paste component HTL here...
 ```
 
@@ -1184,14 +1184,14 @@ Designs a best-practice ClientLib structure with:
 
 The following agents ship with the extension in `.aem-library/agents/`.
 
-### Pipeline agents
+### Workflow agents
 
-Four agents are purpose-built for pipeline use. They can also be invoked individually via `/use-skill`.
+Four agents are purpose-built for workflow use. They can also be invoked individually via `/use-skill`.
 
 #### aem-component-builder
 
 **Invoke:** `@aem /use-skill name=aem-component-builder`
-**Used by:** `new-component-pipeline` (Step 1)
+**Used by:** `new-component-workflow` (Step 1)
 
 Generates a complete AEM 6.5 component matched to the detected workspace: `.content.xml`, HTL, Sling model (with interface + implementation), and Granite UI dialog. Derives site name, Java package, naming conventions, and component group from the scan — no parameters needed if the workspace is already set up.
 
@@ -1204,7 +1204,7 @@ Generates a complete AEM 6.5 component matched to the detected workspace: `.cont
 #### aem-template-builder
 
 **Invoke:** `@aem /use-skill name=aem-template-builder`
-**Used by:** `new-template-pipeline` (Step 1)
+**Used by:** `new-template-workflow` (Step 1)
 
 Generates a complete AEM 6.5 editable template with all four required nodes, scoped to the detected site. Validates `allowedPaths` scope, replicates the child-node set of existing templates, and matches detected XML indentation.
 
@@ -1217,9 +1217,9 @@ Generates a complete AEM 6.5 editable template with all four required nodes, sco
 #### aem-code-reviewer
 
 **Invoke:** `@aem /use-skill name=aem-code-reviewer`
-**Used by:** `new-component-pipeline` (Step 2), `new-template-pipeline` (Step 2)
+**Used by:** `new-component-workflow` (Step 2), `new-template-workflow` (Step 2)
 
-Reviews code from the previous pipeline step against a structured AEM 6.5 checklist. Produces a three-tier verdict: `✅ PASSED`, `⚠️ PASSED WITH WARNINGS`, or `🛑 CRITICAL ISSUES FOUND`. The last verdict halts the pipeline when `haltOnIssues: true` is set on the step.
+Reviews code from the previous workflow step against a structured AEM 6.5 checklist. Produces a three-tier verdict: `✅ PASSED`, `⚠️ PASSED WITH WARNINGS`, or `🛑 CRITICAL ISSUES FOUND`. The last verdict halts the workflow when `haltOnIssues: true` is set on the step.
 
 **Checklist covers:** component node, HTL (XSS, logic-free, null guards), Sling model (annotations, no session calls, interface pattern), dialog (Coral 3 only, field name matching), template nodes (allowedPaths scope, four-node presence)
 
@@ -1232,9 +1232,9 @@ Reviews code from the previous pipeline step against a structured AEM 6.5 checkl
 #### aem-tester
 
 **Invoke:** `@aem /use-skill name=aem-tester`
-**Used by:** `new-component-pipeline` (Step 3)
+**Used by:** `new-component-workflow` (Step 3)
 
-Reads the Sling Model generated in previous pipeline steps and produces a compilable JUnit 5 test class using the AEM Mocks framework (`io.wcm.testing.mock.aem`). Also produces a structured manual author QA checklist with one checkbox per dialog field, plus rendering and accessibility checks.
+Reads the Sling Model generated in previous workflow steps and produces a compilable JUnit 5 test class using the AEM Mocks framework (`io.wcm.testing.mock.aem`). Also produces a structured manual author QA checklist with one checkbox per dialog field, plus rendering and accessibility checks.
 
 **Output:** full JUnit 5 test class → `mvn test` command → author QA checklist (dialog, rendering, responsive, accessibility)
 
@@ -1347,7 +1347,7 @@ Pre-deployment checklist covering:
 
 ---
 
-## Adding your own Skills, Agents, Guides, and Pipelines
+## Adding your own Skills, Agents, Guides, and Workflows
 
 ### Adding a skill
 
@@ -1365,30 +1365,30 @@ Pre-deployment checklist covering:
 4. Run `@aem /list-skills` to confirm it appears in the catalog
 5. Test with `@aem /use-skill name=your-agent-name`
 
-### Adding a pipeline
+### Adding a workflow
 
 **Option 1 — Wizard**
 
 ```
-@aem /build-pipeline
+@aem /build-workflow
 ```
 
-Follow the prompts to name the pipeline, describe it, and add steps. Each step asks for the agent/skill name, a label, and whether to halt on critical issues. The file is saved automatically.
+Follow the prompts to name the workflow, describe it, and add steps. Each step asks for the agent/skill name, a label, and whether to halt on critical issues. The file is saved automatically.
 
 **Option 2 — Write JSON directly**
 
-1. Create a `.json` file in `.aem-library/pipelines/`
-2. Fill in `name`, `description`, `topic`, `tags`, and `steps` (see [Pipeline file format](#pipeline-file-format))
+1. Create a `.json` file in `.aem-library/workflows/`
+2. Fill in `name`, `description`, `topic`, `tags`, and `steps` (see [Workflow file format](#workflow-file-format))
 3. Save the file — the sidebar refreshes automatically
-4. Test with `@aem /run-pipeline name=your-pipeline-name`
+4. Test with `@aem /run-workflow name=your-workflow-name`
 
-**Tips for writing effective pipelines:**
+**Tips for writing effective workflows:**
 
 - Put the most destructive or expensive step first — the reviewer gets more context as it accumulates
 - Use `haltOnIssues: true` only on review/validation steps, not builders or testers
 - Keep step labels short — they appear as headers in the chat output
 - The `agent` field must match the `name` property in the agent's file exactly
-- Add a `handoffs` array to suggest the natural next action after the pipeline completes (e.g. an accessibility audit after a component build)
+- Add a `handoffs` array to suggest the natural next action after the workflow completes (e.g. an accessibility audit after a component build)
 
 ### Sharing with the team
 
@@ -1419,7 +1419,7 @@ All parameters use `key=value` syntax. Multi-word values must be quoted: `title=
 | `/list-skills` | _(no parameters)_ |
 | `/use-skill` | `name` (optional — omit to open picker) + any additional context parameters |
 | `/init-copilot` | _(no parameters — derives everything from the workspace scan)_ |
-| `/run-pipeline` | `name` (optional — omit to open picker) + any `key=value` parameters forwarded to all steps |
-| `/build-pipeline` | _(no parameters — opens the interactive wizard)_ |
+| `/run-workflow` | `name` (optional — omit to open picker) + any `key=value` parameters forwarded to all steps |
+| `/build-workflow` | _(no parameters — opens the interactive wizard)_ |
 
 All parameters are optional when their values can be inferred from the workspace scan. The extension will state what it detected and flag any assumptions it made.

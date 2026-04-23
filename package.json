@@ -34,10 +34,10 @@
           "contextualTitle": "AEM Copilot — Copilot Instructions"
         },
         {
-          "id": "aem-copilot.pipelinesView",
-          "name": "Pipelines",
+          "id": "aem-copilot.workflowsView",
+          "name": "Agent Workflows",
           "icon": "icon-sidebar.svg",
-          "contextualTitle": "AEM Copilot — Pipelines"
+          "contextualTitle": "AEM Copilot — Agent Workflows"
         },
         {
           "id": "aem-copilot.libraryView",
@@ -49,51 +49,51 @@
     },
     "commands": [
       {
-        "command": "aem-copilot.newPipeline",
-        "title": "New Pipeline…",
+        "command": "aem-copilot.newWorkflow",
+        "title": "New Agent Workflow…",
         "icon": "$(add)",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
-        "command": "aem-copilot.refreshPipelines",
+        "command": "aem-copilot.refreshWorkflows",
         "title": "Refresh",
         "icon": "$(refresh)",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
-        "command": "aem-copilot.runPipelineByName",
-        "title": "Run Pipeline",
+        "command": "aem-copilot.runWorkflowByName",
+        "title": "Run Workflow",
         "icon": "$(play)",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
-        "command": "aem-copilot.editPipeline",
+        "command": "aem-copilot.editWorkflow",
         "title": "Edit",
         "icon": "$(edit)",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
-        "command": "aem-copilot.renamePipeline",
+        "command": "aem-copilot.renameWorkflow",
         "title": "Rename",
         "icon": "$(whole-word)",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
-        "command": "aem-copilot.duplicatePipeline",
+        "command": "aem-copilot.duplicateWorkflow",
         "title": "Duplicate",
         "icon": "$(copy)",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
-        "command": "aem-copilot.deletePipeline",
+        "command": "aem-copilot.deleteWorkflow",
         "title": "Delete",
         "icon": "$(trash)",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
         "command": "aem-copilot.handoffToSkill",
         "title": "Hand off to skill / agent",
-        "category": "AEM Pipelines"
+        "category": "AEM Agent Workflows"
       },
       {
         "command": "aem-copilot.generateCopilotInstructions",
@@ -192,13 +192,13 @@
           "group": "navigation@3"
         },
         {
-          "command": "aem-copilot.newPipeline",
-          "when": "view == aem-copilot.pipelinesView",
+          "command": "aem-copilot.newWorkflow",
+          "when": "view == aem-copilot.workflowsView",
           "group": "navigation@1"
         },
         {
-          "command": "aem-copilot.refreshPipelines",
-          "when": "view == aem-copilot.pipelinesView",
+          "command": "aem-copilot.refreshWorkflows",
+          "when": "view == aem-copilot.workflowsView",
           "group": "navigation@2"
         },
         {
@@ -214,28 +214,28 @@
       ],
       "view/item/context": [
         {
-          "command": "aem-copilot.runPipelineByName",
-          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "command": "aem-copilot.runWorkflowByName",
+          "when": "view == aem-copilot.workflowsView && viewItem == aemWorkflow",
           "group": "inline@1"
         },
         {
-          "command": "aem-copilot.editPipeline",
-          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "command": "aem-copilot.editWorkflow",
+          "when": "view == aem-copilot.workflowsView && viewItem == aemWorkflow",
           "group": "inline@2"
         },
         {
-          "command": "aem-copilot.deletePipeline",
-          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "command": "aem-copilot.deleteWorkflow",
+          "when": "view == aem-copilot.workflowsView && viewItem == aemWorkflow",
           "group": "inline@3"
         },
         {
-          "command": "aem-copilot.renamePipeline",
-          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "command": "aem-copilot.renameWorkflow",
+          "when": "view == aem-copilot.workflowsView && viewItem == aemWorkflow",
           "group": "2_edit@1"
         },
         {
-          "command": "aem-copilot.duplicatePipeline",
-          "when": "view == aem-copilot.pipelinesView && viewItem == aemPipeline",
+          "command": "aem-copilot.duplicateWorkflow",
+          "when": "view == aem-copilot.workflowsView && viewItem == aemWorkflow",
           "group": "2_edit@2"
         },
         {
@@ -336,12 +336,12 @@
             "description": "Generate or sync .github/copilot-instructions.md from a live workspace scan. Creates the file on first run; on subsequent runs it refreshes only the auto-generated section, preserving your custom rules."
           },
           {
-            "name": "run-pipeline",
-            "description": "Run an agent pipeline — chains multiple agents in sequence, each receiving the previous step's full output as context. Run with no arguments to pick from a list, or pass name=pipeline-name to run directly."
+            "name": "run-workflow",
+            "description": "Run an agent workflow — chains multiple agents in sequence, each receiving the previous step's full output as context. Run with no arguments to pick from a list, or pass name=workflow-name to run directly."
           },
           {
-            "name": "build-pipeline",
-            "description": "Open a step-by-step wizard to compose a new agent pipeline. Prompts for a name, description, and which agents or skills to run at each step, then saves it to .aem-library/pipelines/."
+            "name": "build-workflow",
+            "description": "Open a step-by-step wizard to compose a new agent workflow. Prompts for a name, description, and which agents or skills to run at each step, then saves it to .aem-library/workflows/."
           }
         ]
       }

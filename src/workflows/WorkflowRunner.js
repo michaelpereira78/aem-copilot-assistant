@@ -2,7 +2,7 @@
 
 const vscode = require('vscode');
 
-// Keywords that signal a step has found critical issues and the pipeline should halt.
+// Keywords that signal a step has found critical issues and the workflow should halt.
 const HALT_PATTERNS = [
   /\bCRITICAL ISSUES FOUND\b/i,
   /verdict.*CRITICAL/i,
@@ -10,38 +10,38 @@ const HALT_PATTERNS = [
   /\bCRITICAL\b.*\bfinding/i
 ];
 
-class PipelineRunner {
+class WorkflowRunner {
 
   /**
-   * Execute a pipeline definition sequentially.
+   * Execute an agent workflow definition sequentially.
    *
-   * @param {object}   pipeline     - Pipeline definition from .aem-library/pipelines/*.json
+   * @param {object}   workflow     - Workflow definition from .aem-library/workflows/*.json
    * @param {object}   library      - Result of LibraryScanner.scan()
    * @param {string}   contextBlock - Workspace context from ContextBuilder.build()
    * @param {string}   userParams   - Raw parameter string from the developer's message
    * @param {object}   stream       - VS Code chat response stream
    * @param {object}   token        - Cancellation token
    */
-  static async run(pipeline, library, contextBlock, userParams, stream, token) {
-    const steps = pipeline.steps || [];
+  static async run(workflow, library, contextBlock, userParams, stream, token) {
+    const steps = workflow.steps || [];
     const total = steps.length;
 
-    // ── Pipeline header ──────────────────────────────────────────────────────
+    // ── Workflow header ──────────────────────────────────────────────────────
     stream.markdown(
-      `# Pipeline: ${pipeline.name}\n\n` +
-      `_${pipeline.description}_\n\n` +
+      `# Agent Workflow: ${workflow.name}\n\n` +
+      `_${workflow.description}_\n\n` +
       `**${total} step${total !== 1 ? 's' : ''}** will run in sequence. ` +
       `Each step receives the full output of all previous steps as context.\n\n`
     );
 
-    let pipelineContext = '';  // grows as each step completes
+    let workflowContext = '';  // grows as each step completes
 
     for (let i = 0; i < total; i++) {
       const step = steps[i];
       const stepNum = i + 1;
 
       if (token.isCancellationRequested) {
-        stream.markdown(`\n---\n\n> Pipeline cancelled by user.\n`);
+        stream.markdown(`\n---\n\n> Agent Workflow cancelled by user.\n`);
         return;
       }
 
@@ -51,33 +51,33 @@ class PipelineRunner {
 
       // ── Resolve entry ──────────────────────────────────────────────────────
       const entryName = step.skill || step.agent || step.guide;
-      const entry = PipelineRunner._findEntry(entryName, library);
+      const entry = WorkflowRunner._findEntry(entryName, library);
 
       if (!entry) {
         stream.markdown(
           `> ⚠️ **Step skipped** — \`${entryName}\` was not found in the team library.\n` +
-          `> Add it to \`.aem-library/\` or check the name in the pipeline definition.\n\n`
+          `> Add it to \`.aem-library/\` or check the name in the workflow definition.\n\n`
         );
         continue;
       }
 
       // ── Build step prompt ──────────────────────────────────────────────────
-      const systemPrompt = PipelineRunner._buildStepPrompt(
-        entry, pipelineContext, stepNum, total, step.label
+      const systemPrompt = WorkflowRunner._buildStepPrompt(
+        entry, workflowContext, stepNum, total, step.label
       );
 
       const userMessage =
-        `You are running pipeline step ${stepNum} of ${total}: "${step.label}".\n\n` +
+        `You are running workflow step ${stepNum} of ${total}: "${step.label}".\n\n` +
         `Developer parameters: ${userParams || '(none — derive all values from workspace context)'}\n\n` +
         `Workspace context is in the block above. ` +
-        (pipelineContext
+        (workflowContext
           ? `Previous step output is included in your system prompt above — treat it as direct input.`
           : `This is the first step — generate from the workspace context and developer parameters.`);
 
       // ── Stream and capture ─────────────────────────────────────────────────
       let stepOutput = '';
       try {
-        stepOutput = await PipelineRunner._streamAndCapture(
+        stepOutput = await WorkflowRunner._streamAndCapture(
           contextBlock, systemPrompt, userMessage, stream, token
         );
       } catch (err) {
@@ -86,18 +86,18 @@ class PipelineRunner {
       }
 
       // Append this step's output to the running context for downstream steps
-      pipelineContext +=
+      workflowContext +=
         `\n\n---\n\n` +
-        `### Pipeline step ${stepNum} completed: "${step.label}"\n\n` +
+        `### Workflow step ${stepNum} completed: "${step.label}"\n\n` +
         stepOutput;
 
       // ── Halt detection ─────────────────────────────────────────────────────
-      if (step.haltOnIssues !== false && PipelineRunner._isCritical(stepOutput)) {
+      if (step.haltOnIssues !== false && WorkflowRunner._isCritical(stepOutput)) {
         stream.markdown(
           `\n\n---\n\n` +
-          `> 🛑 **Pipeline halted after Step ${stepNum}: "${step.label}"**\n>\n` +
+          `> 🛑 **Agent Workflow halted after Step ${stepNum}: "${step.label}"**\n>\n` +
           `> Critical issues were detected in the output above. ` +
-          `Resolve them and run the pipeline again.\n`
+          `Resolve them and run the workflow again.\n`
         );
         return;
       }
@@ -106,14 +106,14 @@ class PipelineRunner {
     // ── Completion ─────────────────────────────────────────────────────────
     stream.markdown(
       `\n\n---\n\n` +
-      `> ✅ **Pipeline complete** — all ${total} step${total !== 1 ? 's' : ''} finished.\n`
+      `> ✅ **Agent Workflow complete** — all ${total} step${total !== 1 ? 's' : ''} finished.\n`
     );
 
     // ── Handoffs — surface "what's next" buttons ────────────────────────────
     // Mirrors the VS Code custom-agent handoffs spec: each entry in
-    // pipeline.handoffs becomes a clickable button that pre-fills (or
+    // workflow.handoffs becomes a clickable button that pre-fills (or
     // auto-submits) the next agent invocation.
-    const handoffs = pipeline.handoffs || [];
+    const handoffs = workflow.handoffs || [];
     if (handoffs.length > 0) {
       stream.markdown(`\n**Next steps:**\n`);
       for (const h of handoffs) {
@@ -143,19 +143,19 @@ class PipelineRunner {
 
   /**
    * Build the system prompt for a single step.
-   * Combines the entry's own instructions with pipeline-chain context.
+   * Combines the entry's own instructions with workflow-chain context.
    */
-  static _buildStepPrompt(entry, pipelineContext, stepNum, totalSteps, stepLabel) {
+  static _buildStepPrompt(entry, workflowContext, stepNum, totalSteps, stepLabel) {
     const instructions = entry.instructions || entry.body || '';
 
-    const chainSection = pipelineContext
+    const chainSection = workflowContext
       ? [
-          '## Output from previous pipeline steps',
+          '## Output from previous workflow steps',
           '',
-          'The following was produced by earlier steps in this pipeline.',
+          'The following was produced by earlier steps in this workflow.',
           'Treat it as direct input for your work — review, extend, or test it as appropriate.',
           '',
-          pipelineContext
+          workflowContext
         ].join('\n')
       : '';
 
@@ -165,9 +165,9 @@ class PipelineRunner {
         : `You are the final step (${stepNum} of ${totalSteps}). Produce a complete, stand-alone result.`;
 
     return [
-      `## Pipeline context`,
+      `## Agent Workflow context`,
       '',
-      `You are running as an automated pipeline step: **Step ${stepNum} of ${totalSteps} — ${stepLabel}**.`,
+      `You are running as an automated workflow step: **Step ${stepNum} of ${totalSteps} — ${stepLabel}**.`,
       positionNote,
       '',
       chainSection,
@@ -219,4 +219,4 @@ class PipelineRunner {
   }
 }
 
-module.exports = { PipelineRunner };
+module.exports = { WorkflowRunner };

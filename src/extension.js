@@ -6,11 +6,11 @@ const { WorkspaceScanner } = require('./scanner/WorkspaceScanner');
 const { ContextBuilder } = require('./scanner/ContextBuilder');
 const { LibraryScanner } = require('./scanner/LibraryScanner');
 const { LibraryTreeProvider } = require('./views/LibraryTreeProvider');
-const { PipelinesTreeProvider, PipelineItem } = require('./views/PipelinesTreeProvider');
+const { WorkflowsTreeProvider, WorkflowItem } = require('./views/WorkflowsTreeProvider');
 const LibraryCommands = require('./views/LibraryCommands');
 const { CopilotInstructionsManager } = require('./commands/CopilotInstructionsManager');
 const { CopilotInstructionsView }    = require('./views/CopilotInstructionsView');
-const { PipelineRunner }             = require('./pipelines/PipelineRunner');
+const { WorkflowRunner }             = require('./workflows/WorkflowRunner');
 
 /**
  * Parse named parameters from a Copilot slash command input.
@@ -358,7 +358,7 @@ async function pickFromLibrary() {
  * After the response streams, any handoffs defined on the matched entry are
  * surfaced as clickable buttons — mirroring the VS Code custom-agent handoffs
  * spec without giving up the explicit output-injection and workspace-context
- * advantages of the pipeline system.
+ * advantages of the agent workflow system.
  */
 async function useSkillHandler(request, _context, stream, token) {
   const params = parseParams(request.prompt);
@@ -418,64 +418,64 @@ const COMMAND_FOLLOWUP_HINTS = {
 };
 
 /**
- * Show a searchable Quick Pick of all pipelines in the library.
- * Returns the selected pipeline object, or null if cancelled / none found.
+ * Show a searchable Quick Pick of all agent workflows in the library.
+ * Returns the selected workflow object, or null if cancelled / none found.
  */
-async function pickPipeline(library) {
-  if (!library.pipelines || library.pipelines.length === 0) return null;
+async function pickWorkflow(library) {
+  if (!library.workflows || library.workflows.length === 0) return null;
 
-  const items = library.pipelines.map(p => ({
-    label:       `$(circuit-board)  ${p.name}`,
-    description: `${p.steps.length} step${p.steps.length !== 1 ? 's' : ''}`,
-    detail:      p.description,
-    pipeline:    p
+  const items = library.workflows.map(w => ({
+    label:       `$(circuit-board)  ${w.name}`,
+    description: `${w.steps.length} step${w.steps.length !== 1 ? 's' : ''}`,
+    detail:      w.description,
+    workflow:    w
   }));
 
   const picked = await vscode.window.showQuickPick(items, {
-    title:             'AEM Pipelines',
-    placeHolder:       'Search pipelines…',
+    title:             'AEM Agent Workflows',
+    placeHolder:       'Search workflows…',
     matchOnDescription: true,
     matchOnDetail:      true
   });
 
-  return picked ? picked.pipeline : null;
+  return picked ? picked.workflow : null;
 }
 
 /**
- * Handler for /run-pipeline.
+ * Handler for /run-workflow.
  * - With name= parameter: runs directly.
- * - Without name=: opens a Quick Pick of available pipelines.
+ * - Without name=: opens a Quick Pick of available workflows.
  * Each step streams in real time; the output of each step feeds the next.
- * A step with haltOnIssues: true will stop the pipeline if CRITICAL is detected.
+ * A step with haltOnIssues: true will stop the workflow if CRITICAL is detected.
  */
-async function runPipelineHandler(request, _context, stream, token) {
+async function runWorkflowHandler(request, _context, stream, token) {
   const params = parseParams(request.prompt);
 
   stream.progress('Loading library…');
   const library = await LibraryScanner.scan();
 
-  let pipeline;
+  let workflow;
 
   if (params.name) {
-    pipeline = (library.pipelines || []).find(p => p.name === params.name);
-    if (!pipeline) {
+    workflow = (library.workflows || []).find(w => w.name === params.name);
+    if (!workflow) {
       stream.markdown(
-        `> **AEM Assistant:** Pipeline \`${params.name}\` not found in the library.\n\n` +
-        `> Available pipelines: ${(library.pipelines || []).map(p => `\`${p.name}\``).join(', ') || '_(none)_'}\n`
+        `> **AEM Assistant:** Agent Workflow \`${params.name}\` not found in the library.\n\n` +
+        `> Available workflows: ${(library.workflows || []).map(w => `\`${w.name}\``).join(', ') || '_(none)_'}\n`
       );
       return;
     }
   } else {
-    pipeline = await pickPipeline(library);
-    if (!pipeline) {
-      // No pipelines at all — fall through to the explanation prompt
+    workflow = await pickWorkflow(library);
+    if (!workflow) {
+      // No workflows at all — fall through to the explanation prompt
       stream.progress('Scanning workspace…');
       const projectCtx = await WorkspaceScanner.scan();
       const contextBlock = ContextBuilder.build(projectCtx);
-      await streamResponse(contextBlock, PROMPTS['run-pipeline'], 'No pipeline selected.', stream, token);
+      await streamResponse(contextBlock, PROMPTS['run-workflow'], 'No workflow selected.', stream, token);
       return;
     }
-    stream.markdown(`> Running pipeline: **${pipeline.name}**\n\n`);
+    stream.markdown(`> Running workflow: **${workflow.name}**\n\n`);
   }
 
   stream.progress('Scanning workspace…');
@@ -489,26 +489,26 @@ async function runPipelineHandler(request, _context, stream, token) {
     _rest
   ].filter(Boolean).join(' ').trim();
 
-  await PipelineRunner.run(pipeline, library, contextBlock, userParams, stream, token);
+  await WorkflowRunner.run(workflow, library, contextBlock, userParams, stream, token);
 }
 
 /**
- * Handler for /build-pipeline.
+ * Handler for /build-workflow.
  * Launches the step-by-step wizard from LibraryCommands and confirms when done.
  */
-async function buildPipelineHandler(request, _context, stream, _token) {
+async function buildWorkflowHandler(request, _context, stream, _token) {
   stream.markdown(
-    '> **AEM Assistant:** Opening the pipeline wizard…\n\n' +
-    '> Answer the prompts in VS Code to name your pipeline, describe it, and add steps.\n' +
-    '> The file will be saved to `.aem-library/pipelines/` and available immediately.\n\n'
+    '> **AEM Assistant:** Opening the agent workflow wizard…\n\n' +
+    '> Answer the prompts in VS Code to name your workflow, describe it, and add steps.\n' +
+    '> The file will be saved to `.aem-library/workflows/` and available immediately.\n\n'
   );
 
-  await LibraryCommands.createPipeline({
-    refresh: () => vscode.commands.executeCommand('aem-copilot.refreshLibrary')
+  await LibraryCommands.createWorkflow({
+    refresh: () => vscode.commands.executeCommand('aem-copilot.refreshWorkflows')
   });
 
   stream.markdown(
-    '> Pipeline saved. Run it with `@aem /run-pipeline` or click it in the **AEM Library** sidebar.\n'
+    '> Agent Workflow saved. Run it with `@aem /run-workflow` or click it in the **Agent Workflows** sidebar.\n'
   );
 }
 
@@ -664,33 +664,33 @@ function activate(context) {
     })
   );
 
-  // ── Pipelines sidebar view ───────────────────────────────────────────────────
-  const pipelinesProvider = new PipelinesTreeProvider();
+  // ── Agent Workflows sidebar view ────────────────────────────────────────────
+  const workflowsProvider = new WorkflowsTreeProvider();
 
   context.subscriptions.push(
-    vscode.window.createTreeView('aem-copilot.pipelinesView', {
-      treeDataProvider: pipelinesProvider,
+    vscode.window.createTreeView('aem-copilot.workflowsView', {
+      treeDataProvider: workflowsProvider,
       showCollapseAll:  true,
       canSelectMany:    false
     })
   );
 
-  // ── Pipeline commands ─────────────────────────────────────────────────────────
+  // ── Agent Workflow commands ───────────────────────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand('aem-copilot.refreshPipelines', () => {
-      pipelinesProvider.refresh();
+    vscode.commands.registerCommand('aem-copilot.refreshWorkflows', () => {
+      workflowsProvider.refresh();
     }),
 
-    vscode.commands.registerCommand('aem-copilot.newPipeline', async () => {
-      await LibraryCommands.createPipeline(pipelinesProvider);
+    vscode.commands.registerCommand('aem-copilot.newWorkflow', async () => {
+      await LibraryCommands.createWorkflow(workflowsProvider);
     }),
 
     // Run — copies command to clipboard and opens Copilot Chat
-    vscode.commands.registerCommand('aem-copilot.runPipelineByName', async (pipelineName) => {
-      const cmd = `@aem /run-pipeline name=${pipelineName}`;
+    vscode.commands.registerCommand('aem-copilot.runWorkflowByName', async (workflowName) => {
+      const cmd = `@aem /run-workflow name=${workflowName}`;
       await vscode.env.clipboard.writeText(cmd);
       const choice = await vscode.window.showInformationMessage(
-        `Command copied — paste into Copilot Chat to run pipeline "${pipelineName}".`,
+        `Command copied — paste into Copilot Chat to run workflow "${workflowName}".`,
         'Open Copilot Chat'
       );
       if (choice === 'Open Copilot Chat') {
@@ -698,23 +698,23 @@ function activate(context) {
       }
     }),
 
-    // Edit — open the pipeline JSON file in the editor
-    vscode.commands.registerCommand('aem-copilot.editPipeline', async (item) => {
-      if (item instanceof PipelineItem && item.pipeline.path) {
+    // Edit — open the workflow JSON file in the editor
+    vscode.commands.registerCommand('aem-copilot.editWorkflow', async (item) => {
+      if (item instanceof WorkflowItem && item.workflow.path) {
         const doc = await vscode.workspace.openTextDocument(
-          vscode.Uri.file(item.pipeline.path)
+          vscode.Uri.file(item.workflow.path)
         );
         await vscode.window.showTextDocument(doc);
       }
     }),
 
     // Duplicate — copy the JSON with a new name
-    vscode.commands.registerCommand('aem-copilot.duplicatePipeline', async (item) => {
-      if (!(item instanceof PipelineItem)) return;
-      const pipeline = item.pipeline;
+    vscode.commands.registerCommand('aem-copilot.duplicateWorkflow', async (item) => {
+      if (!(item instanceof WorkflowItem)) return;
+      const workflow = item.workflow;
       const newName  = await vscode.window.showInputBox({
-        title:        'Duplicate pipeline — new name',
-        value:        `${pipeline.name}-copy`,
+        title:        'Duplicate workflow — new name',
+        value:        `${workflow.name}-copy`,
         validateInput(v) {
           if (!v || !v.trim()) return 'Name is required';
           if (/\s/.test(v))    return 'No spaces — use kebab-case';
@@ -723,9 +723,9 @@ function activate(context) {
       });
       if (!newName) return;
 
-      const dir     = require('path').dirname(pipeline.path);
+      const dir     = require('path').dirname(workflow.path);
       const newPath = require('path').join(dir, `${newName}.json`);
-      const bytes   = await vscode.workspace.fs.readFile(vscode.Uri.file(pipeline.path));
+      const bytes   = await vscode.workspace.fs.readFile(vscode.Uri.file(workflow.path));
       let content   = Buffer.from(bytes).toString('utf8');
       try {
         const parsed = JSON.parse(content);
@@ -734,19 +734,19 @@ function activate(context) {
       } catch (_) {}
 
       await vscode.workspace.fs.writeFile(vscode.Uri.file(newPath), Buffer.from(content, 'utf8'));
-      pipelinesProvider.refresh();
+      workflowsProvider.refresh();
       const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(newPath));
       await vscode.window.showTextDocument(doc);
-      vscode.window.showInformationMessage(`Pipeline duplicated: ${newName}`);
+      vscode.window.showInformationMessage(`Workflow duplicated: ${newName}`);
     }),
 
     // Rename — update name field + rename file
-    vscode.commands.registerCommand('aem-copilot.renamePipeline', async (item) => {
-      if (!(item instanceof PipelineItem)) return;
-      const pipeline = item.pipeline;
-      const oldName  = pipeline.name;
+    vscode.commands.registerCommand('aem-copilot.renameWorkflow', async (item) => {
+      if (!(item instanceof WorkflowItem)) return;
+      const workflow = item.workflow;
+      const oldName  = workflow.name;
       const newName  = await vscode.window.showInputBox({
-        title: 'Rename pipeline',
+        title: 'Rename workflow',
         value: oldName,
         validateInput(v) {
           if (!v || !v.trim()) return 'Name is required';
@@ -757,7 +757,7 @@ function activate(context) {
       });
       if (!newName) return;
 
-      const oldPath = pipeline.path;
+      const oldPath = workflow.path;
       const dir     = require('path').dirname(oldPath);
       const newPath = require('path').join(dir, `${newName}.json`);
       const bytes   = await vscode.workspace.fs.readFile(vscode.Uri.file(oldPath));
@@ -770,27 +770,27 @@ function activate(context) {
 
       await vscode.workspace.fs.writeFile(vscode.Uri.file(newPath), Buffer.from(content, 'utf8'));
       await vscode.workspace.fs.delete(vscode.Uri.file(oldPath));
-      pipelinesProvider.refresh();
-      vscode.window.showInformationMessage(`Pipeline renamed to: ${newName}`);
+      workflowsProvider.refresh();
+      vscode.window.showInformationMessage(`Workflow renamed to: ${newName}`);
     }),
 
     // Delete — with confirmation
-    vscode.commands.registerCommand('aem-copilot.deletePipeline', async (item) => {
-      if (!(item instanceof PipelineItem)) return;
-      const pipeline = item.pipeline;
+    vscode.commands.registerCommand('aem-copilot.deleteWorkflow', async (item) => {
+      if (!(item instanceof WorkflowItem)) return;
+      const workflow = item.workflow;
       const confirm  = await vscode.window.showWarningMessage(
-        `Delete pipeline "${pipeline.name}"? This cannot be undone.`,
+        `Delete workflow "${workflow.name}"? This cannot be undone.`,
         { modal: true },
         'Delete'
       );
       if (confirm !== 'Delete') return;
-      await vscode.workspace.fs.delete(vscode.Uri.file(pipeline.path));
-      pipelinesProvider.refresh();
-      vscode.window.showInformationMessage(`Deleted: ${pipeline.name}`);
+      await vscode.workspace.fs.delete(vscode.Uri.file(workflow.path));
+      workflowsProvider.refresh();
+      vscode.window.showInformationMessage(`Deleted: ${workflow.name}`);
     }),
 
     // ── Handoff command ────────────────────────────────────────────────────
-    // Called by stream.button() handoff buttons on both pipeline completion
+    // Called by stream.button() handoff buttons on both workflow completion
     // and standalone /use-skill responses.
     //
     // Mirrors the VS Code custom-agent handoffs spec:
@@ -881,8 +881,8 @@ function activate(context) {
 function deactivate() {}
 
 const COMMAND_HANDLERS = {
-  'run-pipeline':  runPipelineHandler,
-  'build-pipeline': buildPipelineHandler,
+  'run-workflow':   runWorkflowHandler,
+  'build-workflow': buildWorkflowHandler,
   'init-copilot':  initCopilotHandler,
   'new-site':      makeScaffoldHandler('new-site'),
   'new-template':  makeScaffoldHandler('new-template'),
@@ -917,8 +917,8 @@ const COMMAND_HANDLERS = {
       '| `/list-skills` | Browse the team library: skills, agents, and guides |',
       '| `/use-skill` | Pick a skill, agent, or guide from a searchable menu |',
       '| `/init-copilot` | Generate or sync `.github/copilot-instructions.md` from a workspace scan |',
-      '| `/run-pipeline` | Run a pipeline — chains agents in sequence, each receiving the previous step\'s output |',
-      '| `/build-pipeline` | Step-by-step wizard to compose and save a new pipeline |',
+      '| `/run-workflow` | Run an agent workflow — chains agents in sequence, each receiving the previous step\'s output |',
+      '| `/build-workflow` | Step-by-step wizard to compose and save a new agent workflow |',
       '',
       '> Parameters are optional — if your workspace is already set up, I will detect site name, paths, naming conventions, and existing patterns automatically.',
       '',

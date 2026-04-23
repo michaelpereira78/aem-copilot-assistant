@@ -37,7 +37,7 @@ class LibraryScanner {
    */
   static async scan() {
     try {
-      const results = { skills: [], agents: [], guides: [], pipelines: [], sources: [] };
+      const results = { skills: [], agents: [], guides: [], workflows: [], sources: [] };
 
       // 1. Shared library from settings
       const sharedPath = LibraryScanner._resolvedSharedPath();
@@ -62,11 +62,11 @@ class LibraryScanner {
       results.skills    = LibraryScanner._dedupeByName(results.skills);
       results.agents    = LibraryScanner._dedupeByName(results.agents);
       results.guides    = LibraryScanner._dedupeByName(results.guides);
-      results.pipelines = LibraryScanner._dedupeByName(results.pipelines);
+      results.workflows = LibraryScanner._dedupeByName(results.workflows);
 
       return results;
     } catch (err) {
-      return { skills: [], agents: [], guides: [], pipelines: [], sources: [], error: err.message };
+      return { skills: [], agents: [], guides: [], workflows: [], sources: [], error: err.message };
     }
   }
 
@@ -75,22 +75,22 @@ class LibraryScanner {
   // ---------------------------------------------------------------------------
 
   static async _scanLocation(rootPath, results, source) {
-    const skillsPath    = path.join(rootPath, 'skills');
-    const agentsPath    = path.join(rootPath, 'agents');
-    const guidesPath    = path.join(rootPath, 'guides');
-    const pipelinesPath = path.join(rootPath, 'pipelines');
+    const skillsPath     = path.join(rootPath, 'skills');
+    const agentsPath     = path.join(rootPath, 'agents');
+    const guidesPath     = path.join(rootPath, 'guides');
+    const workflowsPath  = path.join(rootPath, 'workflows');
 
-    const [skills, agents, guides, pipelines] = await Promise.all([
+    const [skills, agents, guides, workflows] = await Promise.all([
       LibraryScanner._readMarkdownDir(skillsPath, source),
       LibraryScanner._readAgentsDir(agentsPath, source),
       LibraryScanner._readMarkdownDir(guidesPath, source),
-      LibraryScanner._readPipelinesDir(pipelinesPath, source)
+      LibraryScanner._readWorkflowsDir(workflowsPath, source)
     ]);
 
     results.skills.push(...skills);
     results.agents.push(...agents);
     results.guides.push(...guides);
-    results.pipelines.push(...pipelines);
+    results.workflows.push(...workflows);
   }
 
   // ---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ class LibraryScanner {
     return items;
   }
 
-  static async _readPipelinesDir(dirPath, source) {
+  static async _readWorkflowsDir(dirPath, source) {
     const entries  = await LibraryScanner._listDir(dirPath);
     const jsonFiles = entries.filter(([name]) => name.endsWith('.json'));
     const items    = [];

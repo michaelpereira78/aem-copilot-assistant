@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:code.visualstudio.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(mkdir -p .aem-library/workflows)",
+      "Bash(mv src/views/PipelinesTreeProvider.js src/views/WorkflowsTreeProvider.js)",
+      "Bash(mv src/pipelines/PipelineRunner.js src/pipelines/WorkflowRunner.js)",
+      "Bash(mv src/prompts/runPipeline.js src/prompts/runWorkflow.js)",
+      "Bash(cp .aem-library/pipelines/new-component-pipeline.json .aem-library/workflows/new-component-workflow.json)",
+      "Bash(cp .aem-library/pipelines/new-template-pipeline.json .aem-library/workflows/new-template-workflow.json)",
+      "Bash(cp .aem-library/pipelines/code-audit-pipeline.json .aem-library/workflows/code-audit-workflow.json)",
+      "Bash(rm -rf .aem-library/pipelines)"
     ]
   }
 }

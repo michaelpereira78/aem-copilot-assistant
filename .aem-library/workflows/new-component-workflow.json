@@ -1,5 +1,5 @@
 {
-  "name": "new-component-pipeline",
+  "name": "new-component-workflow",
   "description": "Build a complete AEM component, review it for best practices, then generate unit tests and a QA checklist",
   "topic": "components",
   "tags": ["component", "scaffold", "review", "testing"],

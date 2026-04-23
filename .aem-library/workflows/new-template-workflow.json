@@ -1,5 +1,5 @@
 {
-  "name": "new-template-pipeline",
+  "name": "new-template-workflow",
   "description": "Build a complete AEM editable template then review it for correctness and best practices",
   "topic": "templates",
   "tags": ["template", "scaffold", "review"],

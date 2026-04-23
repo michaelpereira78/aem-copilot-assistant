@@ -2,7 +2,7 @@
 name: aem-component-builder
 description: Builds a complete AEM 6.5 component — node, HTL, Sling model, and dialog — matched to the detected project
 topic: components
-tags: [builder, component, scaffold, pipeline]
+tags: [builder, component, scaffold, workflow]
 model: claude-sonnet-4-6
 tools: []
 handoffs:

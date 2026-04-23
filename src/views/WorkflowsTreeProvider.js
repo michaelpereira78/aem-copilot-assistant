@@ -5,31 +5,31 @@ const path   = require('path');
 const { LibraryScanner } = require('../scanner/LibraryScanner');
 
 // ─── Context values ───────────────────────────────────────────────────────────
-const CTX_PIPELINE      = 'aemPipeline';
-const CTX_PIPELINE_STEP = 'aemPipelineStep';
-const CTX_EMPTY         = 'aemPipelineEmpty';
+const CTX_WORKFLOW      = 'aemWorkflow';
+const CTX_WORKFLOW_STEP = 'aemWorkflowStep';
+const CTX_EMPTY         = 'aemWorkflowEmpty';
 
 // ─── Icons for step entry types ───────────────────────────────────────────────
 const STEP_ICONS = { agent: 'robot', skill: 'symbol-method', guide: 'book' };
 
 // ─── Item classes ─────────────────────────────────────────────────────────────
 
-class PipelineItem extends vscode.TreeItem {
-  constructor(pipeline) {
+class WorkflowItem extends vscode.TreeItem {
+  constructor(workflow) {
     // Expandable so steps are visible underneath
-    super(pipeline.name, vscode.TreeItemCollapsibleState.Collapsed);
+    super(workflow.name, vscode.TreeItemCollapsibleState.Collapsed);
 
-    this.pipeline    = pipeline;
-    this.contextValue = CTX_PIPELINE;
+    this.workflow    = workflow;
+    this.contextValue = CTX_WORKFLOW;
     this.iconPath    = new vscode.ThemeIcon('circuit-board');
-    this.description = `${pipeline.steps.length} step${pipeline.steps.length !== 1 ? 's' : ''}`;
+    this.description = `${workflow.steps.length} step${workflow.steps.length !== 1 ? 's' : ''}`;
 
-    const stepList = pipeline.steps
+    const stepList = workflow.steps
       .map((s, i) => `${i + 1}. **${s.label}** — ${s.agent || s.skill || s.guide}${s.haltOnIssues ? ' _(halts on critical)_' : ''}`)
       .join('\n');
 
     this.tooltip = new vscode.MarkdownString(
-      `**${pipeline.name}**\n\n${pipeline.description || ''}\n\n${stepList}`
+      `**${workflow.name}**\n\n${workflow.description || ''}\n\n${stepList}`
     );
   }
 }
@@ -41,11 +41,11 @@ class StepItem extends vscode.TreeItem {
 
     super(`${index + 1}. ${step.label}`, vscode.TreeItemCollapsibleState.None);
 
-    this.contextValue = CTX_PIPELINE_STEP;
+    this.contextValue = CTX_WORKFLOW_STEP;
     this.description  = entryName;
     this.iconPath     = new vscode.ThemeIcon(STEP_ICONS[entryType] || 'symbol-misc');
 
-    const haltNote = step.haltOnIssues ? '\n\n⚠️ _Halts pipeline on critical issues_' : '';
+    const haltNote = step.haltOnIssues ? '\n\n⚠️ _Halts workflow on critical issues_' : '';
     this.tooltip = new vscode.MarkdownString(
       `**Step ${index + 1} of ${total}: ${step.label}**\n\n` +
       `Type: ${entryType}  |  Entry: \`${entryName}\`` +
@@ -65,11 +65,11 @@ class EmptyItem extends vscode.TreeItem {
 
 // ─── Tree data provider ───────────────────────────────────────────────────────
 
-class PipelinesTreeProvider {
+class WorkflowsTreeProvider {
   constructor() {
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData  = this._onDidChangeTreeData.event;
-    this._pipelines = null;
+    this._workflows = null;
 
     // Re-scan when workspace or settings change
     vscode.workspace.onDidChangeWorkspaceFolders(() => this.refresh());
@@ -77,16 +77,16 @@ class PipelinesTreeProvider {
       if (e.affectsConfiguration('aem-copilot.libraryPath')) this.refresh();
     });
 
-    // Re-scan when any file inside .aem-library/pipelines/ is saved
+    // Re-scan when any file inside .aem-library/workflows/ is saved
     vscode.workspace.onDidSaveTextDocument(doc => {
-      if (doc.uri.fsPath.includes(path.join('.aem-library', 'pipelines'))) {
+      if (doc.uri.fsPath.includes(path.join('.aem-library', 'workflows'))) {
         this.refresh();
       }
     });
   }
 
   refresh() {
-    this._pipelines = null;
+    this._workflows = null;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -95,47 +95,47 @@ class PipelinesTreeProvider {
   }
 
   async getChildren(element) {
-    // Root level → list all pipelines
+    // Root level → list all workflows
     if (!element) {
-      return this._getPipelineItems();
+      return this._getWorkflowItems();
     }
 
-    // Pipeline item → list its steps
-    if (element instanceof PipelineItem) {
-      return this._getStepItems(element.pipeline);
+    // Workflow item → list its steps
+    if (element instanceof WorkflowItem) {
+      return this._getStepItems(element.workflow);
     }
 
     return [];
   }
 
-  async _loadPipelines() {
-    if (!this._pipelines) {
+  async _loadWorkflows() {
+    if (!this._workflows) {
       const lib = await LibraryScanner.scan();
-      this._pipelines = lib.pipelines || [];
+      this._workflows = lib.workflows || [];
     }
-    return this._pipelines;
+    return this._workflows;
   }
 
-  async _getPipelineItems() {
-    const pipelines = await this._loadPipelines();
+  async _getWorkflowItems() {
+    const workflows = await this._loadWorkflows();
 
-    if (pipelines.length === 0) {
+    if (workflows.length === 0) {
       return [
-        new EmptyItem('No pipelines yet', 'click + or run @aem /build-pipeline'),
-        new EmptyItem('Add .aem-library/pipelines/ to your workspace')
+        new EmptyItem('No agent workflows yet', 'click + or run @aem /build-workflow'),
+        new EmptyItem('Add .aem-library/workflows/ to your workspace')
       ];
     }
 
-    return pipelines.map(p => new PipelineItem(p));
+    return workflows.map(w => new WorkflowItem(w));
   }
 
-  _getStepItems(pipeline) {
-    const steps = pipeline.steps || [];
+  _getStepItems(workflow) {
+    const steps = workflow.steps || [];
     if (steps.length === 0) {
-      return [new EmptyItem('No steps defined', 'edit the pipeline file to add steps')];
+      return [new EmptyItem('No steps defined', 'edit the workflow file to add steps')];
     }
     return steps.map((step, i) => new StepItem(step, i, steps.length));
   }
 }
 
-module.exports = { PipelinesTreeProvider, PipelineItem };
+module.exports = { WorkflowsTreeProvider, WorkflowItem };

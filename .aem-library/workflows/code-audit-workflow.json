@@ -1,5 +1,5 @@
 {
-  "name": "code-audit-pipeline",
+  "name": "code-audit-workflow",
   "description": "Run a full audit on existing code — component review, accessibility check, and migration analysis. Paste or reference the code you want audited.",
   "topic": "review",
   "tags": ["audit", "review", "accessibility", "migration"],

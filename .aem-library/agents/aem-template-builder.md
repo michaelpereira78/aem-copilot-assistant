@@ -2,7 +2,7 @@
 name: aem-template-builder
 description: Builds a complete AEM 6.5 editable template with all four required nodes, matched to the detected project
 topic: templates
-tags: [builder, template, scaffold, pipeline]
+tags: [builder, template, scaffold, workflow]
 model: claude-sonnet-4-6
 tools: []
 handoffs:
