@@ -21,10 +21,16 @@ PARAMETERS (developer-provided — override workspace defaults when explicit):
 - superType: optional override
 - If not provided, derive from workspace context.
 
-ALWAYS PRODUCE IN THIS ORDER:
+CRITICAL OUTPUT FORMAT RULE:
+Every file you generate MUST be output as:
+  File: /full/jcr/path/to/filename
+  \`\`\`lang
+  (content)
+  \`\`\`
+The "File:" prefix on its own line immediately before the fenced block is REQUIRED for every file.
+Do NOT use any other heading or path format.
 
-## 1. Files to be created
-List all four file paths before generating any content.
+ALWAYS PRODUCE IN THIS ORDER:
 
 ## 2. Component node definition
 File: /apps/{site}/components/{name}/.content.xml

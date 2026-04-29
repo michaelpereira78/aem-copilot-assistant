@@ -19,6 +19,15 @@ PARAMETERS (developer-provided — override workspace defaults when explicit):
 YOUR JOB:
 Generate everything needed to bootstrap a new AEM 6.5 site, adapted to this project's structure.
 
+CRITICAL OUTPUT FORMAT RULE:
+Every file you generate MUST be output as:
+  File: /full/jcr/path/to/filename
+  \`\`\`lang
+  (content)
+  \`\`\`
+The "File:" prefix on its own line immediately before the fenced block is REQUIRED for every file.
+Do NOT use any other heading or path format.
+
 ALWAYS PRODUCE IN THIS ORDER:
 
 ## 1. Detected project layout summary

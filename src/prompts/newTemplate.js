@@ -18,58 +18,44 @@ PARAMETERS (provided by developer — override workspace defaults when explicit)
 - site: site name (fall back to workspace-detected site name)
 - If not provided, derive from workspace context.
 
+CRITICAL OUTPUT FORMAT RULE:
+Every file you generate MUST be output as:
+  File: /full/jcr/path/to/file.xml
+  \`\`\`xml
+  (content)
+  \`\`\`
+The "File:" prefix on its own line immediately before the fenced block is REQUIRED for every file.
+Do NOT use any other heading or path format.
+
 ALWAYS PRODUCE IN THIS ORDER:
 
-## 1. File paths overview
-List all files you are about to generate and their full JCR paths.
+## 1. Template structure node
+Brief one-sentence description of this node, then immediately:
 
-## 2. Template structure node
 File: /conf/{site}/settings/wcm/templates/{name}/structure/.content.xml
-This defines the fixed layout regions. Include:
-- jcr:primaryType="cq:PageContent"
-- cq:deviceGroups pointing to responsive grid
-- A root responsiveGrid (parsys) with sling:resourceType="wcm/foundation/components/responsivegrid"
-- A header and footer locked structure node referencing the site's header/footer components
-
 \`\`\`xml
-(produce full valid XML here)
+(full valid XML — jcr:primaryType="cq:PageContent", cq:deviceGroups, responsiveGrid parsys, locked header/footer structure nodes)
 \`\`\`
 
-## 3. Template policies node
+## 2. Template policies node
 File: /conf/{site}/settings/wcm/templates/{name}/policies/.content.xml
-Include:
-- jcr:primaryType="nt:unstructured"
-- A policy reference for the root responsiveGrid pointing to /conf/{site}/settings/wcm/policies/wcm/foundation/components/responsivegrid/default
-
 \`\`\`xml
-(produce full valid XML here)
+(full valid XML — jcr:primaryType="nt:unstructured", policy reference for responsiveGrid)
 \`\`\`
 
-## 4. Template initial content node
+## 3. Template initial content node
 File: /conf/{site}/settings/wcm/templates/{name}/initial/.content.xml
-Include:
-- jcr:primaryType="cq:PageContent"
-- sling:resourceType pointing to the site's page component
-- cq:template self-reference
-
 \`\`\`xml
-(produce full valid XML here)
+(full valid XML — jcr:primaryType="cq:PageContent", sling:resourceType for site page component, cq:template self-reference)
 \`\`\`
 
-## 5. Template root node
+## 4. Template root node
 File: /conf/{site}/settings/wcm/templates/{name}/.content.xml
-Include:
-- jcr:primaryType="cq:Template"
-- jcr:title
-- allowedPaths: ["/content/{site}/.*"]
-- ranking: 100
-- status: enabled
-
 \`\`\`xml
-(produce full valid XML here)
+(full valid XML — jcr:primaryType="cq:Template", jcr:title, allowedPaths=["/content/{site}/.*"], ranking=100, status=enabled)
 \`\`\`
 
-## 6. Step-by-step enable guide
+## 5. Step-by-step enable guide
 Numbered steps:
 1. Deploy files via Maven or copy into CRXDE
 2. Navigate to Tools > Templates in AEM and confirm template appears

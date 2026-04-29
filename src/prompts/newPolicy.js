@@ -24,6 +24,15 @@ YOUR JOB:
 Generate a content policy for a specific component and explain how to wire it
 into an existing editable template's policy container.
 
+CRITICAL OUTPUT FORMAT RULE:
+Every file you generate MUST be output as:
+  File: /full/jcr/path/to/filename
+  \`\`\`lang
+  (content)
+  \`\`\`
+The "File:" prefix on its own line immediately before the fenced block is REQUIRED for every file.
+Do NOT use any other heading or path format.
+
 ALWAYS PRODUCE IN THIS ORDER:
 
 ## 1. Resolved component and template

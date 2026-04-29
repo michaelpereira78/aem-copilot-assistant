@@ -19,14 +19,19 @@ PARAMETERS (developer-provided — override workspace defaults when explicit):
 - components: comma-separated component names (fall back to detected component names)
 - If not provided, derive from workspace context.
 
+CRITICAL OUTPUT FORMAT RULE:
+Every file you generate MUST be output as:
+  File: /full/jcr/path/to/filename
+  \`\`\`lang
+  (content)
+  \`\`\`
+The "File:" prefix on its own line immediately before the fenced block is REQUIRED for every file.
+Do NOT use any other heading or path format.
+
 ALWAYS PRODUCE IN THIS ORDER:
 
-## 1. ClientLib folder structure
-Show the folder tree for /apps/{site}/clientlibs/{name}/ including all files you will generate.
-
-## 2. ClientLib node definition
+## 1. ClientLib node definition
 File: /apps/{site}/clientlibs/{name}/.content.xml
-
 \`\`\`xml
 <?xml version="1.0" encoding="UTF-8"?>
 <jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
@@ -35,41 +40,60 @@ File: /apps/{site}/clientlibs/{name}/.content.xml
     categories="[{site}.base]"
     dependencies="[granite.utils]"/>
 \`\`\`
-Adjust categories and dependencies to match the site name.
 
-## 3. css.txt
-List all SCSS/CSS files in compilation order.
+## 2. css.txt
+File: /apps/{site}/clientlibs/{name}/css.txt
 \`\`\`text
-(produce css.txt content)
+(list all SCSS/CSS files in compilation order)
 \`\`\`
 
-## 4. js.txt
-List all JS files in compilation order.
+## 3. js.txt
+File: /apps/{site}/clientlibs/{name}/js.txt
 \`\`\`text
-(produce js.txt content)
+(list all JS files in compilation order)
 \`\`\`
 
-## 5. SCSS file stubs
-Generate one fenced scss block per file:
-- site/main.scss — imports all partials
-- site/_variables.scss — colour tokens, spacing scale, typography scale, breakpoints
-- site/_mixins.scss — respond-to breakpoint mixin, visually-hidden, clearfix
-- site/_base.scss — CSS reset + base typography styles
-- One partial per component listed in the components parameter, e.g. site/components/_nav.scss
+## 4. Main SCSS entry point
+File: /apps/{site}/clientlibs/{name}/scss/main.scss
+\`\`\`scss
+(imports for all partials)
+\`\`\`
 
-Each partial must contain:
-- A comment header with the component name
-- At least one BEM block selector with placeholder styles
-- A responsive breakpoint example using the mixin
+## 5. Variables partial
+File: /apps/{site}/clientlibs/{name}/scss/_variables.scss
+\`\`\`scss
+(colour tokens, spacing scale, typography scale, breakpoints)
+\`\`\`
 
-## 6. Page component HTL wiring
+## 6. Mixins partial
+File: /apps/{site}/clientlibs/{name}/scss/_mixins.scss
+\`\`\`scss
+(respond-to breakpoint mixin, visually-hidden, clearfix)
+\`\`\`
+
+## 7. Base styles partial
+File: /apps/{site}/clientlibs/{name}/scss/_base.scss
+\`\`\`scss
+(CSS reset + base typography styles)
+\`\`\`
+
+## 8. Component SCSS partials
+For each component in the components parameter (fall back to all detected components), output one file:
+
+File: /apps/{site}/clientlibs/{name}/scss/components/_{componentName}.scss
+\`\`\`scss
+(BEM block selector, placeholder styles, responsive breakpoint example using the mixin)
+\`\`\`
+Repeat this block for each component.
+
+## 9. Page component HTL wiring
 Show the one-line change to add the clientlib category to the page component's HTL head template:
 \`\`\`html
 <sly data-sly-use.clientlib="/libs/granite/sightly/templates/clientlib.html"
      data-sly-call="\${clientlib.all @ categories='{site}.base'}"/>
 \`\`\`
 
-## 7. Step-by-step setup guide
+## 10. Step-by-step setup guide
 Numbered steps:
 1. Where to place the clientlib folder in your Maven project
 2. How to configure the webpack/frontend-maven-plugin to compile SCSS into the clientlib
