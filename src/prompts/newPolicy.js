@@ -35,8 +35,9 @@ One paragraph explaining what authoring behaviour this policy will govern
 for the specific component type detected.
 
 ## 3. Policy node definition
-File path derived from detected confRoot:
-/conf/{site}/settings/wcm/policies/{site}/components/{component}/.content.xml
+Output the file path on its own line starting with "File: ", immediately followed by a fenced xml block.
+
+File: /conf/{site}/settings/wcm/policies/{site}/components/{component}/.content.xml
 
 Include:
 - jcr:primaryType="nt:unstructured"

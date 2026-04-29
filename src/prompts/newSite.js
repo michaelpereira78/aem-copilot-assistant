@@ -34,11 +34,28 @@ Plain-text code block. Adapt root paths to detected layout. Include:
 - Java models root (match detected location)
 
 ## 3. Key .content.xml files
-One fenced xml block per file, file path as heading:
-- /apps/{siteName}/.content.xml — sling:Folder node
-- /apps/{siteName}/components/page/.content.xml — cq:Component with sling:resourceSuperType
-- /content/{siteName}/.content.xml — cq:Page root
-- /conf/{siteName}/.content.xml — sling:Folder
+For each file, output the path on its own line starting with "File: ", immediately followed by a fenced xml block.
+Adapt all paths to the detected project roots.
+
+File: /apps/{siteName}/.content.xml
+\`\`\`xml
+(sling:Folder node)
+\`\`\`
+
+File: /apps/{siteName}/components/page/.content.xml
+\`\`\`xml
+(cq:Component with sling:resourceSuperType pointing to WCM Core Components)
+\`\`\`
+
+File: /content/{siteName}/.content.xml
+\`\`\`xml
+(cq:Page root)
+\`\`\`
+
+File: /conf/{siteName}/.content.xml
+\`\`\`xml
+(sling:Folder)
+\`\`\`
 
 ## 4. Step-by-step setup guide
 Adapted to detected build tooling. Cover: file placement, deploy command, CRXDE verification, allowed templates.

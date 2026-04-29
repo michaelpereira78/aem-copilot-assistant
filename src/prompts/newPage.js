@@ -21,13 +21,13 @@ PARAMETERS (developer-provided — override workspace defaults when explicit):
 
 ALWAYS PRODUCE IN THIS ORDER:
 
-## 1. File path
-State the exact file path:
-/ui.content/src/main/content/jcr_root/content/{site}/{pageSlug}/.content.xml
-(derive pageSlug from title: lowercase, hyphens, no special chars)
+## 1. Page .content.xml
+Output the file path on its own line starting with "File: ", immediately followed by a fenced xml block.
+Derive pageSlug from title: lowercase, hyphens, no special chars.
 
-## 2. Page .content.xml
-One fenced xml block. Must include:
+File: /ui.content/src/main/content/jcr_root/content/{site}/{pageSlug}/.content.xml
+
+Must include:
 - jcr:primaryType="cq:Page" on the root
 - jcr:content child with:
   - jcr:primaryType="cq:PageContent"
@@ -45,7 +45,7 @@ One fenced xml block. Must include:
 (produce full valid XML here)
 \`\`\`
 
-## 3. Step-by-step deployment guide
+## 2. Step-by-step deployment guide
 Numbered steps:
 1. Save the file into your Maven project at the path above
 2. Run: mvn clean install -pl ui.content -PautoInstallPackage
