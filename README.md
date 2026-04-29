@@ -383,33 +383,40 @@ After writing the file, the assistant explains what was generated, recommends wo
 
 ---
 
-## Scaffold commands — file writing and confirmation
+## Scaffold commands — review, approval, and file writing
 
-All scaffold commands (`/new-template`, `/new-component`, `/new-page`, `/new-theme`, `/new-policy`, `/new-site`) do more than describe what to create — they actually write the files to your workspace.
+All scaffold commands (`/new-template`, `/new-component`, `/new-page`, `/new-theme`, `/new-policy`, `/new-site`) do more than describe what to create — they generate all file content, present a review, and write files to your workspace in one step after you approve.
 
 **How it works:**
 
-1. The AI generates all file content and streams it to the chat as normal
-2. After the response completes, a **confirmation Quick Pick** appears listing every file that is about to be created, with each file's workspace-relative path
-3. All files are pre-checked — the common case is to accept everything
-4. Uncheck any files you want to skip, then press **Enter** to write
-5. Press **Escape** to cancel without writing anything
-6. A summary appears in chat confirming which files were written
+1. The workspace and team library are scanned in parallel. Any skills or guides in `.aem-library/` that match the command's topic are injected into the AI prompt automatically — so the AI applies your team's own patterns, not generic defaults.
+2. The AI streams its full response to chat, including all file content, as normal.
+3. A **Planned Changes** summary appears below the response, listing every file that will be created with its workspace-relative path.
+4. Two buttons appear:
+   - **✓ Approve — Apply All** — applies every file immediately with no further prompts
+   - **✗ Decline** — cancels the operation; nothing is written
+5. On approval, all files are applied in a single `WorkspaceEdit` — the same atomic mechanism VS Code Copilot Edits uses — so changes land in the undo stack. The first created file opens in the editor automatically.
 
 ```
-Create 4 files in workspace?
+Planned Changes
 
-✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/.content.xml
-✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/structure/.content.xml
-✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/policies/.content.xml
-✔  ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/initial/.content.xml
+The following 4 files will be created in your workspace:
+
+- ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/.content.xml
+- ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/structure/.content.xml
+- ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/policies/.content.xml
+- ui.content/src/main/content/jcr_root/conf/my-brand/settings/wcm/templates/content-page/initial/.content.xml
+
+[✓ Approve — Apply All]  [✗ Decline]
 ```
+
+**Skill injection:** Before generating output, the extension automatically loads all skills and guides from `.aem-library/` whose topic matches the command (e.g. skills tagged `components` for `/new-component`, `templates` for `/new-template`). Their full bodies are appended to the system prompt so the AI generates code consistent with your team's specific standards and patterns.
 
 **Path resolution:** Files are placed under the JCR root detected by the workspace scanner — the same `confRoot`, `appsRoot`, and `contentRoot` paths shown by `/scan`. If the scanner has not detected a root for the file's JCR prefix, the file falls back to `<workspace root>/jcr_root/<path>`.
 
 **Parent directories** are created automatically if they do not already exist.
 
-> The confirmation step is always shown — files are never written without your approval.
+> Files are never written without your explicit approval.
 
 ---
 

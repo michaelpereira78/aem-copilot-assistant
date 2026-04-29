@@ -10,7 +10,12 @@
       "Bash(cp .aem-library/pipelines/new-component-pipeline.json .aem-library/workflows/new-component-workflow.json)",
       "Bash(cp .aem-library/pipelines/new-template-pipeline.json .aem-library/workflows/new-template-workflow.json)",
       "Bash(cp .aem-library/pipelines/code-audit-pipeline.json .aem-library/workflows/code-audit-workflow.json)",
-      "Bash(rm -rf .aem-library/pipelines)"
+      "Bash(rm -rf .aem-library/pipelines)",
+      "mcp__claude_ai_Notion__notion-create-pages",
+      "Bash(npm run *)",
+      "Bash(node *)",
+      "mcp__claude_ai_Notion__notion-fetch",
+      "mcp__claude_ai_Notion__notion-update-page"
     ]
   }
 }

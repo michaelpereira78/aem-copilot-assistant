@@ -111,6 +111,43 @@ async function streamAndCapture(contextBlock, systemPrompt, userMessage, stream,
 }
 
 /**
+ * Pending scaffold operations keyed by a random ID.
+ * Populated by reviewScaffoldFiles(), consumed by the approveScaffold command.
+ */
+const pendingScaffolds = new Map();
+
+/**
+ * Skill/guide topics relevant to each scaffold command.
+ * Used to inject matching library entries into the AI prompt.
+ */
+const SCAFFOLD_SKILL_TOPICS = {
+  'new-component': ['components'],
+  'new-template':  ['templates'],
+  'new-theme':     ['themes'],
+  'new-page':      ['templates', 'components'],
+  'new-policy':    ['templates'],
+  'new-site':      ['components', 'templates'],
+};
+
+/**
+ * Build a markdown block of relevant skill/guide bodies from the library,
+ * filtered to topics that match the scaffold command.
+ */
+function buildSkillContext(library, commandKey) {
+  const topics = SCAFFOLD_SKILL_TOPICS[commandKey] || [];
+  const relevant = [...library.skills, ...library.guides].filter(
+    e => (topics.length === 0 || topics.includes(e.topic)) && e.body
+  );
+  if (relevant.length === 0) return '';
+
+  const parts = ['## Team Library — Relevant Skills & Guides\n'];
+  for (const entry of relevant) {
+    parts.push(`### ${entry.name}\n${entry.body}\n`);
+  }
+  return parts.join('\n');
+}
+
+/**
  * Parse every  File: /jcr/path  followed by a fenced code block from the AI
  * response text.  Returns an array of { jcrPath, content } objects.
  *
@@ -166,89 +203,40 @@ function jcrToFsPath(jcrPath, projectCtx) {
 }
 
 /**
- * Parse the AI response for File: + code-block pairs, ask the developer
- * to confirm via a QuickPick (all files pre-selected, individual files can
- * be deselected), then write every approved file to the workspace.
+ * Parse the AI response for File: + code-block pairs, show a review summary
+ * in the chat stream, then surface Approve / Decline buttons.
+ *
+ * Approve → aem-copilot.approveScaffold applies all files via WorkspaceEdit
+ *           (the same mechanism Copilot Edits uses) with no further prompts.
+ * Decline → clears the pending operation and notifies the developer.
  */
-async function writeScaffoldFiles(responseText, projectCtx, stream) {
-  const nodePath = require('path');
-  const files    = parseFilesFromResponse(responseText);
-
+async function reviewScaffoldFiles(responseText, projectCtx, stream) {
+  const files = parseFilesFromResponse(responseText);
   if (files.length === 0) return;
 
-  // ── Build QuickPick items (one per file, all pre-selected) ──────────────
-  const items = files.map(({ jcrPath, content }) => {
+  const fileItems = files.map(({ jcrPath, content }) => {
     const fsPath  = jcrToFsPath(jcrPath, projectCtx);
-    const fileUri = vscode.Uri.file(fsPath);
-    const relPath = vscode.workspace.asRelativePath(fileUri);
-    return {
-      label:       relPath,
-      description: jcrPath,
-      picked:      true,   // pre-selected
-      jcrPath,
-      content,
-      fsPath
-    };
+    const relPath = vscode.workspace.asRelativePath(vscode.Uri.file(fsPath));
+    return { jcrPath, content, fsPath, relPath };
   });
 
-  // ── Show confirmation picker ─────────────────────────────────────────────
-  const selected = await vscode.window.showQuickPick(items, {
-    title:              `Create ${files.length} file${files.length !== 1 ? 's' : ''} in workspace?`,
-    placeHolder:        'Uncheck any files you want to skip, then press Enter to confirm — or press Escape to cancel.',
-    canPickMany:        true,
-    matchOnDescription: true
-  });
-
-  // User pressed Escape or closed the picker
-  if (!selected) {
-    stream.markdown('\n\n---\n\n> File creation cancelled.\n');
-    return;
+  // ── Review summary ───────────────────────────────────────────────────────
+  stream.markdown('\n\n---\n\n## Planned Changes\n\n');
+  stream.markdown(
+    `The following **${fileItems.length} file${fileItems.length !== 1 ? 's' : ''}** will be created in your workspace:\n\n`
+  );
+  for (const item of fileItems) {
+    stream.markdown(`- \`${item.relPath}\`\n`);
   }
+  stream.markdown('\n');
 
-  if (selected.length === 0) {
-    stream.markdown('\n\n---\n\n> No files selected — nothing written.\n');
-    return;
-  }
+  // ── Register pending operation ───────────────────────────────────────────
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  pendingScaffolds.set(id, fileItems);
 
-  // ── Write the approved files ─────────────────────────────────────────────
-  stream.markdown('\n\n---\n\n## Files written to workspace\n\n');
-
-  let written = 0;
-  let failed  = 0;
-
-  for (const item of selected) {
-    try {
-      const fileUri = vscode.Uri.file(item.fsPath);
-      const dirUri  = vscode.Uri.file(nodePath.dirname(item.fsPath));
-
-      await vscode.workspace.fs.createDirectory(dirUri);
-      await vscode.workspace.fs.writeFile(fileUri, Buffer.from(item.content, 'utf8'));
-
-      stream.markdown(`- \`${item.label}\`\n`);
-      written++;
-    } catch (err) {
-      stream.markdown(`- ⚠️ Could not write \`${item.jcrPath}\` — ${err.message}\n`);
-      failed++;
-    }
-  }
-
-  const skipped = files.length - written - failed;
-
-  if (written > 0) {
-    stream.markdown(
-      `\n> **${written} file${written !== 1 ? 's' : ''} written** to your workspace.\n`
-    );
-  }
-  if (skipped > 0) {
-    stream.markdown(
-      `> ${skipped} file${skipped !== 1 ? 's' : ''} skipped.\n`
-    );
-  }
-  if (failed > 0) {
-    stream.markdown(
-      `> ⚠️ **${failed} file${failed !== 1 ? 's' : ''} could not be written** — check the paths above.\n`
-    );
-  }
+  // ── Approve / Decline buttons ────────────────────────────────────────────
+  stream.button({ command: 'aem-copilot.approveScaffold', arguments: [id], title: '$(check) Approve — Apply All' });
+  stream.button({ command: 'aem-copilot.declineScaffold', arguments: [id], title: '$(x) Decline' });
 }
 
 /**
@@ -276,23 +264,31 @@ function makeHandler(commandKey) {
 
 /**
  * Scaffold command handler factory.
- * Same as makeHandler but also parses the AI response for
- * "File: /jcr/path" + fenced-code-block pairs and writes every matched
- * file directly into the workspace.
+ * Scans the workspace and team library in parallel, injects any relevant
+ * skill/guide bodies into the system prompt, streams and captures the AI
+ * response, then calls reviewScaffoldFiles() to present an Approve/Decline
+ * review before touching any files.
  */
 function makeScaffoldHandler(commandKey) {
   return async (request, _context, stream, token) => {
     stream.progress('Scanning workspace…');
 
-    const projectCtx   = await WorkspaceScanner.scan();
+    const [projectCtx, library] = await Promise.all([
+      WorkspaceScanner.scan(),
+      LibraryScanner.scan()
+    ]);
+
     const contextBlock = ContextBuilder.build(projectCtx);
-    const systemPrompt = PROMPTS[commandKey];
+    const skillContext = buildSkillContext(library, commandKey);
+    const systemPrompt = skillContext
+      ? PROMPTS[commandKey] + '\n\n---\n\n' + skillContext
+      : PROMPTS[commandKey];
     const userMessage  = buildUserMessage(request.prompt);
 
     const responseText = await streamAndCapture(contextBlock, systemPrompt, userMessage, stream, token);
 
-    if (responseText && projectCtx.available) {
-      await writeScaffoldFiles(responseText, projectCtx, stream);
+    if (responseText) {
+      await reviewScaffoldFiles(responseText, projectCtx, stream);
     }
   };
 }
@@ -787,6 +783,59 @@ function activate(context) {
       await vscode.workspace.fs.delete(vscode.Uri.file(workflow.path));
       workflowsProvider.refresh();
       vscode.window.showInformationMessage(`Deleted: ${workflow.name}`);
+    }),
+
+    // ── Scaffold Approve / Decline ─────────────────────────────────────────
+    vscode.commands.registerCommand('aem-copilot.approveScaffold', async (id) => {
+      const fileItems = pendingScaffolds.get(id);
+      if (!fileItems) {
+        vscode.window.showWarningMessage('AEM Copilot: Scaffold operation has already been applied or cancelled.');
+        return;
+      }
+      pendingScaffolds.delete(id);
+
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'AEM Copilot: Applying scaffold…', cancellable: false },
+        async () => {
+          const nodePath = require('path');
+
+          // Parent directories must exist before WorkspaceEdit creates the files
+          for (const item of fileItems) {
+            await vscode.workspace.fs.createDirectory(vscode.Uri.file(nodePath.dirname(item.fsPath)));
+          }
+
+          // Apply all files in one atomic WorkspaceEdit — the same mechanism
+          // Copilot Edits uses, so changes land in the undo stack and diff view.
+          const edit = new vscode.WorkspaceEdit();
+          for (const item of fileItems) {
+            edit.createFile(vscode.Uri.file(item.fsPath), {
+              overwrite: true,
+              contents:  Buffer.from(item.content, 'utf8')
+            });
+          }
+
+          const success = await vscode.workspace.applyEdit(edit);
+
+          if (success) {
+            // Open the first created file so the developer sees it immediately
+            try {
+              const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(fileItems[0].fsPath));
+              await vscode.window.showTextDocument(doc);
+            } catch (_) {}
+
+            vscode.window.showInformationMessage(
+              `AEM Copilot: ${fileItems.length} file${fileItems.length !== 1 ? 's' : ''} applied to workspace.`
+            );
+          } else {
+            vscode.window.showErrorMessage('AEM Copilot: Could not apply scaffold — check the Output panel for details.');
+          }
+        }
+      );
+    }),
+
+    vscode.commands.registerCommand('aem-copilot.declineScaffold', async (id) => {
+      pendingScaffolds.delete(id);
+      vscode.window.showInformationMessage('AEM Copilot: Scaffold declined — no files were written.');
     }),
 
     // ── Handoff command ────────────────────────────────────────────────────
